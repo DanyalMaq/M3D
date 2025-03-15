@@ -1,2 +1,5 @@
 Data/data/*
 Data/patient_data/*
+*.bin
+output/*
+__pycache__/
