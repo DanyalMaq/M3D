@@ -4,6 +4,9 @@ from typing import Optional
 import transformers
 from transformers import AutoTokenizer
 from dataclasses import dataclass, field
+import sys
+
+sys.path.append("/mym3d")
 from LaMed.src.model.language_model import LamedLlamaForCausalLM, LamedPhi3ForCausalLM
 
 @dataclass
@@ -166,3 +169,9 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# CUDA_VISIBLE_DEVICES="" python3 LaMed/src/utils/merge_lora_weights_and_save_hf_model.py \
+#   --version="" \
+#   --model_type="phi3" \
+#   --model_with_lora="LaMed/output/LaMed-Phi3-4B-finetune-alpha-0002/model_with_lora.bin" \
+#   --output_dir="LaMed-Phi3-4B-finetune-alpha-0002"

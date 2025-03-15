@@ -97,6 +97,16 @@ class ViT(nn.Module):
             dropout_rate=dropout_rate,
             spatial_dims=spatial_dims,
         )
+        self.patch_embedding_contour = PatchEmbeddingBlock(
+            in_channels=1,
+            img_size=img_size,
+            patch_size=patch_size,
+            hidden_size=hidden_size,
+            num_heads=num_heads,
+            pos_embed=pos_embed,
+            dropout_rate=dropout_rate,
+            spatial_dims=spatial_dims,
+        )
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, qkv_bias, save_attn)
@@ -111,8 +121,9 @@ class ViT(nn.Module):
             # else:
             #     self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
-    def forward(self, x):
-        x = self.patch_embedding(x)
+    def forward(self, x, contour):
+        x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
+        # print("Contour included")
         if hasattr(self, "cls_token"):
             cls_token = self.cls_token.expand(x.shape[0], -1, -1)
             x = torch.cat((cls_token, x), dim=1)
@@ -145,8 +156,8 @@ class ViT3DTower(nn.Module):
             classification=True,
         )
 
-    def forward(self, images):
-        last_feature, hidden_states = self.vision_tower(images)
+    def forward(self, images, contours):
+        last_feature, hidden_states = self.vision_tower(images, contours)
         if self.select_layer == -1:
             image_features = last_feature
         elif self.select_layer < -1:

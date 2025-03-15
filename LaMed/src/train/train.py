@@ -6,7 +6,7 @@ import torch
 import transformers
 from transformers import AutoTokenizer, LlamaForCausalLM
 from dataclasses import dataclass, field
-from LaMed.src.dataset.multi_dataset import UniDatasets, CapDataset, TextDatasets, VQADataset
+from LaMed.src.dataset.multi_dataset import UniDatasets, CapDataset, TextDatasets, VQADataset, MyCapDataset
 from LaMed.src.model.language_model import LamedLlamaForCausalLM, LamedPhi3ForCausalLM
 from LaMed.src.train.lamed_trainer import LaMedTrainer
 
@@ -56,22 +56,22 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
-    data_root: str = field(default="./Data/data/", metadata={"help": "Root directory for all data."})
+    data_root: str = field(default="/mym3d/Data/data/", metadata={"help": "Root directory for all data."})
 
     # caption data
-    cap_data_path: str = field(default="./Data/data/M3D_Cap_npy/M3D_Cap.json", metadata={"help": "Path to caption data."})
+    cap_data_path: str = field(default="/mym3d/Data/output.json", metadata={"help": "Path to caption data."})
 
     # VQA data
-    vqa_data_train_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_train.csv", metadata={"help": "Path to training VQA data."})
-    vqa_data_val_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_val.csv", metadata={"help": "Path to validation VQA data."})
-    vqa_data_test_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_test.csv", metadata={"help": "Path to testing VQA data."})
+    # vqa_data_train_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_train.csv", metadata={"help": "Path to training VQA data."})
+    # vqa_data_val_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_val.csv", metadata={"help": "Path to validation VQA data."})
+    # vqa_data_test_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_test.csv", metadata={"help": "Path to testing VQA data."})
 
-    vqa_yn_data_train_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_yn_train.csv", metadata={"help": "Path to training VQA Yes or No data."})
+    # vqa_yn_data_train_path: str = field(default="./Data/data/M3D-VQA/M3D_VQA_yn_train.csv", metadata={"help": "Path to training VQA Yes or No data."})
 
     # positioning & segmentation data
-    seg_data_path: str = field(default="./Data/data/M3D_Seg_npy/", metadata={"help": "Path to segmentation data."})
-    refseg_data_train_path: str = field(default="./Data/data/M3D_RefSeg_npy/M3D_RefSeg.csv", metadata={"help": "Path to refering segmentation data."})
-    refseg_data_test_path: str = field(default="./Data/data/M3D_RefSeg_npy/M3D_RefSeg_test.csv", metadata={"help": "Path to refering segmentation data."})
+    # seg_data_path: str = field(default="/mym3d/Data/data/M3D_Seg_npy/", metadata={"help": "Path to segmentation data."})
+    # refseg_data_train_path: str = field(default="/mym3d/Data/data/M3D_RefSeg_npy/M3D_RefSeg_train.csv", metadata={"help": "Path to refering segmentation data."})
+    # refseg_data_test_path: str = field(default="/mym3d/Data/data/M3D_RefSeg_npy/M3D_RefSeg_test.csv", metadata={"help": "Path to refering segmentation data."})
 
 
 @dataclass
@@ -126,6 +126,9 @@ class TrainingArguments(transformers.TrainingArguments):
 def compute_metrics(eval_preds):
     labels_ids = eval_preds.label_ids
     pred_ids = eval_preds.predictions
+    # print("Evaluating\n")
+    # print(labels_ids.shape, labels_ids)
+    # print(pred_ids, pred_ids.shape)
 
     labels = labels_ids[:, 1:]
     preds = pred_ids[:, :-1]
@@ -136,6 +139,7 @@ def compute_metrics(eval_preds):
     filtered_preds = preds_flatten[valid_indices]
     filtered_labels = labels_flatten[valid_indices]
     acc_score = sum(filtered_preds==filtered_labels) / len(filtered_labels)
+    # exit()
 
     return {"accuracy": acc_score}
 
@@ -219,10 +223,11 @@ class DataCollator:
         self.seg_enable = seg_enable
     def __call__(self, batch: list) -> dict:
         if self.seg_enable:
-            images, input_ids, labels, attention_mask, segs = tuple(
-                [b[key] for b in batch] for key in ('image', 'input_id', 'label', 'attention_mask', 'seg'))
+            images, contours, input_ids, labels, attention_mask, segs = tuple(
+                [b[key] for b in batch] for key in ('image', 'contour', 'input_id', 'label', 'attention_mask', 'seg'))
 
             images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+            contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
             input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
             labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
             attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
@@ -236,22 +241,25 @@ class DataCollator:
 
             return_dict = dict(
                 images=images,
+                contours=contours,
                 input_ids=input_ids,
                 labels=labels,
                 attention_mask=attention_mask,
                 segs=segs,
             )
         else:
-            images, input_ids, labels, attention_mask = tuple(
-                [b[key] for b in batch] for key in ('image', 'input_id', 'label', 'attention_mask'))
+            images, contours, input_ids, labels, attention_mask = tuple(
+                [b[key] for b in batch] for key in ('image', 'contour', 'input_id', 'label', 'attention_mask'))
 
             images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+            contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
             input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
             labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
             attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
 
             return_dict = dict(
                 images=images,
+                contours=contours,
                 input_ids=input_ids,
                 labels=labels,
                 attention_mask=attention_mask,
@@ -346,7 +354,7 @@ def main():
 
     if model_args.pretrain_mllm:
         ckpt = torch.load(model_args.pretrain_mllm, map_location="cpu")
-        model.load_state_dict(ckpt, strict=True)
+        model.load_state_dict(ckpt, strict=False)
         rank0_print("load pretrained MLLM weights.")
 
     if training_args.lora_enable:
@@ -368,7 +376,14 @@ def main():
             ):
                 p.requires_grad = True
 
-        model.print_trainable_parameters()
+        # model.print_trainable_parameters()
+
+    if model_args.tune_mm_mlp_adapter:
+        model.requires_grad_(False)
+        for p in model.get_model().mm_projector.parameters():
+            p.requires_grad = True
+    # model.print_trainable_parameters()
+    
 
     # ckpt = torch.load("PATH/model_with_lora.bin", map_location="cpu")
     # model.load_state_dict(ckpt, strict=True)
@@ -379,12 +394,12 @@ def main():
     rank0_print("vision tokens output from projector: ", data_args.proj_out_num)
     data_args.seg_enable = hasattr(model.get_model(), "seg_module")
 
-    if model_args.tune_mm_mlp_adapter:
-        train_dataset = TextDatasets(data_args, tokenizer, mode='train')
-    else:
-        train_dataset = UniDatasets(data_args, tokenizer, mode='train')
+    # if model_args.tune_mm_mlp_adapter:
+    #     train_dataset = TextDatasets(data_args, tokenizer, mode='train')
+    # else:
+    train_dataset = UniDatasets(data_args, tokenizer, mode='train')
 
-    eval_dataset = CapDataset(data_args, tokenizer, mode='validation')
+    eval_dataset = MyCapDataset(data_args, tokenizer, mode='validation')
     data_collator = DataCollator(data_args.seg_enable)
 
     rank0_print("="*20 + " Training " + "="*20)

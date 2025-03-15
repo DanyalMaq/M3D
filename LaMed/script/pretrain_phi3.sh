@@ -4,16 +4,17 @@
 
 accelerate launch LaMed/src/train/train.py \
     --version v0 \
-    --model_name_or_path microsoft/Phi-3-mini-4k-instruct \
-    --model_type lamed_phi3 \
+    --model_name_or_path GoodBaiBai88/M3D-LaMed-Phi-3-4B \
+    --model_type phi3 \
     --vision_tower vit3d \
-    --pretrain_vision_model ./LaMed/pretrained_model/M3D-CLIP/pretrained_ViT.bin \
+    --pretrain_vision_model /mym3d/LaMed/pretrained_ViT.bin \
+    --pretrain_mm_mlp_adapter /mym3d/LaMed/mm_projector.bin \
     --tune_mm_mlp_adapter True \
     --bf16 True \
-    --output_dir ./LaMed/output/LaMed-Phi3-4B-pretrain-0000 \
+    --output_dir ./LaMed/output/LaMed-Phi3-4B-pretrain-alpha-0000 \
     --num_train_epochs 3 \
-    --per_device_train_batch_size 16 \
-    --per_device_eval_batch_size 4 \
+    --per_device_train_batch_size 4 \
+    --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "steps" \
     --eval_accumulation_steps 1 \
@@ -29,4 +30,6 @@ accelerate launch LaMed/src/train/train.py \
     --gradient_checkpointing False \
     --dataloader_pin_memory True\
     --dataloader_num_workers 8 \
-    --report_to tensorboard
+    --report_to all
+
+# sh LaMed/script/pretrain_phi3.sh

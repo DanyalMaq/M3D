@@ -40,18 +40,30 @@ class LamedMetaModel:
 
     def initialize_vision_modules(self, model_args):
         self.config.image_channel = model_args.image_channel
+        # print("Image channel:", self.config.image_channel)
         self.config.image_size = model_args.image_size
+        # print("Image size:", self.config.image_size)
         self.config.patch_size = model_args.patch_size
+        # print("Patch size:", self.config.patch_size)
 
         self.config.vision_tower = model_args.vision_tower
+        # print("Vision tower:", self.config.vision_tower)
         self.config.vision_select_layer = model_args.vision_select_layer
+        # print("Vision select layer:", self.config.vision_select_layer)
         self.config.vision_select_feature = model_args.vision_select_feature
+        # print("Vision select feature:", self.config.vision_select_feature)
 
         self.config.mm_projector_type = model_args.mm_projector_type
+        # print("MM projector type:", self.config.mm_projector_type)
         self.config.proj_layer_type = model_args.proj_layer_type
+        # print("Proj layer type:", self.config.proj_layer_type)
         self.config.proj_layer_num = model_args.proj_layer_num
+        # print("Proj layer num:", self.config.proj_layer_num)
         self.config.proj_pooling_type = model_args.proj_pooling_type
+        # print("Proj pooling type:", self.config.proj_pooling_type)
         self.config.proj_pooling_size = model_args.proj_pooling_size
+        # print("Proj pooling size:", self.config.proj_pooling_size)
+
 
         # vision tower
         if self.get_vision_tower() is None:
@@ -62,9 +74,10 @@ class LamedMetaModel:
 
         if model_args.pretrain_vision_model is not None:
             vision_model_weights = torch.load(model_args.pretrain_vision_model, map_location='cpu')
-            self.vision_tower.vision_tower.load_state_dict(vision_model_weights, strict=True)
+            self.vision_tower.vision_tower.load_state_dict(vision_model_weights, strict=False)
 
         self.config.mm_hidden_size = self.vision_tower.hidden_size
+        # print("Hidden size", self.vision_tower.hidden_size)
 
         # mm_projector
         if getattr(self, 'mm_projector', None) is None:
@@ -112,23 +125,35 @@ class LamedMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, images):
-        image_features = self.get_model().get_vision_tower()(images)
+    def encode_images(self, images, contours):
+        image_features = self.get_model().get_vision_tower()(images, contours)
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
     def prepare_inputs_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
-        images,
+        images, contours,
     ):
         vision_tower = self.get_vision_tower()
         if vision_tower is None or images is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
         else:
-            image_features = self.encode_images(images)
+            image_features = self.encode_images(images, contours)
+            # print("Image feature shape", image_features)
+            # contour_features = self.encode_images(contours)
             inputs_embeds = self.get_model().embed_tokens(input_ids)
+            # print("Embedding shape:", inputs_embeds)
+            # print("inputs_embeds shape", inputs_embeds.shape)
+            # print("image features shape", image_features.shape)
+            # print("contour shape", contour_features.shape)
+            # print("combined offset", (image_features.shape[1] + contour_features.shape[1] + 1))
+            # inputs_embeds = torch.cat(
+                # (inputs_embeds[:, :1, :], image_features, contour_features, inputs_embeds[:, (image_features.shape[1] + contour_features.shape[1] + 1):, :]), dim=1)
             inputs_embeds = torch.cat(
                 (inputs_embeds[:, :1, :], image_features, inputs_embeds[:, (image_features.shape[1] + 1):, :]), dim=1)
+            # print("final embeds shape", inputs_embeds.shape)
+            # print("final embeds of both imagesshape", inputs_embeds_two.shape)
+            # print("final mask shape", attention_mask.shape)
         return None, position_ids, attention_mask, past_key_values, inputs_embeds, labels
 
     def initialize_vision_tokenizer(self, model_args, tokenizer):
@@ -165,6 +190,7 @@ class LamedMetaForCausalLM(ABC):
         if model_args.pretrain_mm_mlp_adapter:
             mm_projector_weights = torch.load(model_args.pretrain_mm_mlp_adapter, map_location='cpu')
             embed_tokens_weight = mm_projector_weights['model.embed_tokens.weight']
+            # print("Embed tokens weight:", embed_tokens_weight)
 
             if input_embeddings.shape == embed_tokens_weight.shape:
                 input_embeddings = embed_tokens_weight

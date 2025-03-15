@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/mym3d/")
+
 import os
 import csv
 import random
@@ -7,9 +10,10 @@ from torch.utils.data import DataLoader
 import argparse
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
-from Bench.dataset.multi_dataset import CapDataset
+from LaMed.src.dataset.multi_dataset import MyCapDataset
+# from Bench.dataset.multi_dataset import CapDataset, MyCapDataset
 # If the model is not from huggingface but local, please uncomment and import the model architecture.
-# from LaMed.src.model.language_model import *
+from LaMed.src.model.language_model import *
 import evaluate
 
 accuracy = evaluate.load("accuracy")
@@ -31,8 +35,8 @@ def seed_everything(seed):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name_or_path', type=str, default="GoodBaiBai88/M3D-LaMed-Llama-2-7B", choices=[])
-    parser.add_argument('--max_length', type=int, default=512)
+    parser.add_argument('--model_name_or_path', type=str, default="LaMed-Phi3-4B-finetune-alpha-0002", choices=[])
+    parser.add_argument('--max_length', type=int, default=768)
     parser.add_argument('--max_new_tokens', type=int, default=256)
     parser.add_argument('--do_sample', type=bool, default=False)
     parser.add_argument('--top_p', type=float, default=None)
@@ -41,10 +45,11 @@ def parse_args(args=None):
 
     # data
     parser.add_argument('--data_root', type=str, default="./Data/data")
-    parser.add_argument('--cap_data_path', type=str, default="./Data/data/M3D_Cap_npy/M3D_Cap.json")
-    parser.add_argument('--output_dir', type=str, default="./LaMed/output/LaMed-finetune-0000/eval_caption/")
+    parser.add_argument('--cap_data_path', type=str, default="/mym3d/Data/output.json")
+    parser.add_argument('--output_dir', type=str, default="./LaMed/output/LaMed-finetune-alpha-0002/eval_caption/")
 
     parser.add_argument('--proj_out_num', type=int, default=256)
+    parser.add_argument('--seg_enable', type=bool, default=True)
 
     return parser.parse_args(args)
 
@@ -66,14 +71,14 @@ def main():
         use_fast=False,
         trust_remote_code=True
     )
-    model = AutoModelForCausalLM.from_pretrained(
+    model = LamedPhi3ForCausalLM.from_pretrained(
         args.model_name_or_path,
-        device_map='auto',
+        # device_map='auto',
         trust_remote_code=True
     )
     model = model.to(device=device)
 
-    test_dataset = CapDataset(args, tokenizer=tokenizer, mode='test') # test1k
+    test_dataset = MyCapDataset(args, tokenizer=tokenizer, mode='validation') # test1k
 
     test_dataloader = DataLoader(
             test_dataset,
@@ -90,19 +95,23 @@ def main():
 
     with open(output_path, mode='w') as outfile:
         writer = csv.writer(outfile)
-        writer.writerow(["Question", "Ground Truth", "pred", "bleu", "rouge1", "meteor", "bert_f1"])
+        writer.writerow(["Question", "Ground Truth", "pred", "bleu", "rouge1", "meteor"]) #, "bert_f1"
         for sample in tqdm(test_dataloader):
             question = sample["question"]
             answer = sample['answer']
 
             input_id = tokenizer(question, return_tensors="pt")['input_ids'].to(device=device)
             image = sample["image"].to(device=device)
+            contour = sample["contour"].to(device=device)
 
-            generation = model.generate(image, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
+            generation = model.generate(image, contour, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
             generated_texts = tokenizer.batch_decode(generation, skip_special_tokens=True)
 
             result = dict()
             decoded_preds, decoded_labels = postprocess_text(generated_texts, answer)
+            # accuracy_score = accuracy.compute(predictions=decoded_preds, references=decoded_labels)
+            # result["accuracy"] = accuracy_score['accuracy']
+
             bleu_score = bleu.compute(predictions=decoded_preds, references=decoded_labels, max_order=1)
             result["bleu"] = bleu_score['bleu']
 
@@ -112,12 +121,12 @@ def main():
             meteor_score = meteor.compute(predictions=decoded_preds, references=decoded_labels)
             result["meteor"] = meteor_score['meteor']
 
-            bert_score = bertscore.compute(predictions=decoded_preds, references=decoded_labels, lang="en")
-            result["bert_f1"] = sum(bert_score['f1']) / len(bert_score['f1'])
+            # bert_score = bertscore.compute(predictions=decoded_preds, references=decoded_labels, lang="en")
+            # result["bert_f1"] = sum(bert_score['f1']) / len(bert_score['f1'])
 
-            writer.writerow([question[0], answer[0], generated_texts[0], result["bleu"], result["rouge1"], result["meteor"], result["bert_f1"]])
+            writer.writerow([question[0], answer[0], generated_texts[0], result["bleu"], result["rouge1"], result["meteor"]]) # , result["bert_f1"]
 
 
 if __name__ == "__main__":
     main()
-       
+    # python3 Bench/eval/eval_caption.py

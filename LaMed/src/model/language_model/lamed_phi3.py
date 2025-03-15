@@ -27,12 +27,14 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
 
     def __init__(self, config):
         super(LamedPhi3ForCausalLM, self).__init__(config)
+        print("starting")
         self.model = LamedPhi3Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
         # Initialize weights and apply final processing
         self.post_init()
+        print("Initialised")
 
     def get_model(self):
         return self.model
@@ -40,6 +42,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def forward(
             self,
             images: Optional[torch.FloatTensor] = None,
+            contours: Optional[torch.FloatTensor] = None,
             input_ids: torch.LongTensor = None,
             labels: Optional[torch.LongTensor] = None,
             attention_mask: Optional[torch.Tensor] = None,
@@ -72,6 +75,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 past_key_values,
                 labels,
                 images,
+                contours,
             )
 
         try:
@@ -147,12 +151,15 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def generate(
         self,
         images: Optional[torch.Tensor] = None,
+        contours: Optional[torch.Tensor] = None,
         inputs: Optional[torch.Tensor] = None,
         seg_enable: bool = False,
         **kwargs,
     ) -> Union[GenerateOutput, torch.LongTensor, Any]:
+        print("called")
         position_ids = kwargs.pop("position_ids", None)
         attention_mask = kwargs.pop("attention_mask", None)
+        print(kwargs)
         if "inputs_embeds" in kwargs:
             raise NotImplementedError("`inputs_embeds` is not supported")
 
@@ -171,6 +178,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 None,
                 None,
                 images,
+                contours,
             )
         else:
             inputs_embeds = self.get_model().embed_tokens(inputs)
@@ -223,11 +231,13 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None,
                                       inputs_embeds=None, **kwargs):
         images = kwargs.pop("images", None)
+        contours = kwargs.pop("contours", None)
         inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
         )
         if images is not None:
             inputs['images'] = images
+            inputs['contours'] = contours
         return inputs
 
 
