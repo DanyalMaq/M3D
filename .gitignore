@@ -3,3 +3,5 @@ Data/patient_data/*
 *.bin
 output/*
 __pycache__/
+*.pt
+*.nii.gz
