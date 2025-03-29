@@ -1,4 +1,5 @@
 import torch
+from torch.utils.data import Dataset
 import monai
 from copy import deepcopy
 import shutil
@@ -7,8 +8,14 @@ from pathlib import Path
 from typing import List
 from monai.utils import look_up_option
 from monai.data.utils import SUPPORTED_PICKLE_MOD
+from dataclasses import dataclass, field
 
 from merlin.data.monai_transforms import ImageTransforms
+
+import monai.transforms as mtf
+from monai.data import set_track_meta
+import random
+import numpy as np
 
 class CTPersistentDataset(monai.data.PersistentDataset):
     def __init__(self, data, transform, cache_dir=None):
@@ -92,3 +99,85 @@ class DataLoader(monai.data.DataLoader):
             shuffle=shuffle,
             num_workers=num_workers,
         )
+
+
+@dataclass
+class DataCollator:
+    def __init__(self):
+        pass
+    def __call__(self, batch: list) -> dict:
+        images, contours, input_ids, labels, attention_mask = tuple(
+            [b[key] for b in batch] for key in ('image', 'contour'))
+
+        images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+        contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
+
+        return_dict = dict(
+            images=images,
+            contours=contours
+        )
+
+        return return_dict
+
+class MyCapDataset(Dataset):
+    def __init__(self, data_list):
+        self.data_list = data_list
+        self.data_root
+        train_transform = mtf.Compose(
+            [
+                mtf.RandRotate90d(keys=["image", "con"], prob=0.5, spatial_axes=(1, 2)),
+                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=1),
+                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=2),
+                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=0),
+                mtf.RandScaleIntensityd(keys=["image", "con"], factors=0.1, prob=0.5),
+                mtf.RandShiftIntensityd(keys=["image", "con"], offsets=0.1, prob=0.5),
+
+                mtf.ToTensord(keys=["image", "con"], dtype=torch.float),
+            ]
+        )
+        val_transform = mtf.Compose(
+                [
+                    mtf.ToTensord(keys=["image", "con"], dtype=torch.float),
+                ]
+            )
+        set_track_meta(False)
+
+    def __len__(self):
+        return len(self.data_list)
+
+    def __getitem__(self, idx):
+        max_attempts = 5
+        for _ in range(max_attempts):
+            try:
+                data = self.data_list[idx]
+                image_path = data["image"]
+                contour_path = data["contour"]
+                image_abs_path = os.path.join(self.data_root, image_path)
+                contour_abs_path = os.path.join(self.data_root, contour_path)
+
+                image = np.load(image_abs_path)  # nomalized 0-1, C,D,H,W
+                contour = np.load(contour_abs_path)  # nomalized 0-1, C,D,H,W
+                # image = np.load(img_abs_path)[np.newaxis, ...]  # nomalized
+
+                item = {
+                    'image': image,
+                    'con': contour,
+                }
+
+                it = self.transform(item)
+                images = [it['image']]
+                images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+                print(images.shape)
+                contours = [it['con']]
+                contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
+                print(contours.shape)
+
+                ret = {
+                    'image': images,
+                    'contour': contours,
+                }
+                return ret
+
+            except Exception as e:
+                print(f"Error in __getitem__ at index {idx}: {e}")
+                idx = random.randint(0, len(self.data_list) - 1)

@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: merlin-vlm
 Version: 0.0.2
 Summary: Merlin: A Vision Language Foundation Model for 3D Computed Tomography
@@ -46,6 +46,7 @@ Requires-Dist: transformers==4.38.2
 Requires-Dist: torchvision==0.16.2
 Requires-Dist: nibabel
 Requires-Dist: nltk
+Dynamic: license-file
 
 # Merlin: Vision Language Foundation Model for 3D Computed Tomography
 

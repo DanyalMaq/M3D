@@ -124,12 +124,14 @@ class ViT(nn.Module):
     def forward(self, x, contour):
         x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
         # print("Contour included")
+        print("x shape", x.shape)
         if hasattr(self, "cls_token"):
             cls_token = self.cls_token.expand(x.shape[0], -1, -1)
             x = torch.cat((cls_token, x), dim=1)
         hidden_states_out = []
         for blk in self.blocks:
             x = blk(x)
+            print("x shape again", x.shape)
             hidden_states_out.append(x)
         x = self.norm(x)
         # if hasattr(self, "classification_head"):
@@ -158,6 +160,7 @@ class ViT3DTower(nn.Module):
 
     def forward(self, images, contours):
         last_feature, hidden_states = self.vision_tower(images, contours)
+        print("Last_feature shape:", last_feature.shape)
         if self.select_layer == -1:
             image_features = last_feature
         elif self.select_layer < -1:
