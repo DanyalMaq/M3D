@@ -102,20 +102,22 @@ class DataCollator:
         return return_dict
 
 def main():
+    # Setting up device and args
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") # Use GPU if available
-
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments))
     model_args, data_args = parser.parse_args_into_dataclasses()
 
+    # Seting up tokenizer 
     tokenizer = AutoTokenizer.from_pretrained(
         "GoodBaiBai88/M3D-LaMed-Phi-3-4B",
         model_max_length=512,
         padding_side="right",
         use_fast=False,
     )
+
+    # Setting up dataset
     train_dataset = UniDatasets(data_args, tokenizer, mode='train')
     data_collator = DataCollator(data_args.seg_enable)
-
     train_dataloader = DataLoader(
         train_dataset,
         batch_size=data_args.per_device_train_batch_size, # Assuming this is available in data_args
@@ -123,10 +125,14 @@ def main():
         collate_fn=data_collator,
     )
 
+    # Setting up vision modules
+
+    # Sets up vision encoder from m3d and merlin combined
     vision_encoder = build_vision_tower(model_args)
     vision_encoder.to(device)
     vision_encoder.eval() # Set the model to evaluation mode
 
+    # Performs inference on a single batch with
     with torch.no_grad(): 
         for batch in train_dataloader:
             images = batch['images'].to(device)
