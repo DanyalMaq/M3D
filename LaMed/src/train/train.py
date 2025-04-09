@@ -40,6 +40,7 @@ class ModelArguments:
     vision_select_feature: Optional[str] = field(default="patch")
     pretrain_vision_model: str = field(default=None, metadata={"help": "Path to pretrained model for ViT."})
     freeze_vision_tower: bool = field(default=False)
+    use_contour: bool = field(default=False)
 
     # projector
     mm_projector_type: Optional[str] = field(default='spp', metadata={"help": "spp"})

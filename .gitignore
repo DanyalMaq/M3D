@@ -1,5 +1,11 @@
 Data/data/*
-Data/patient_data/*
+Data/training
+Data/testing
+Data/patient_data
+Data/*.json
+Data/process/*.json
+LaMed/output/*
+models
 *.bin
 output/*
 __pycache__/

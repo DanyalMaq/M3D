@@ -5,6 +5,7 @@ def create_json_from_directory(train, test):
     data = {"train": [], "validation": []}
     
     # Traverse the directory and its subdirectories
+    print(train)
     for subdir, _, files in os.walk(train):
         image_npy_file = None
         contour_npy_file = None
@@ -56,4 +57,4 @@ def create_json_from_directory(train, test):
         json.dump(data, json_file, indent=4)
 
 # Replace 'your_directory_path' with the path to the root directory
-create_json_from_directory('/home/dxm060/docker/M3D/Data/data/training_npy', '/home/dxm060/docker/M3D/Data/data/testing_npy')
+create_json_from_directory('../data/training_npy', '../data/testing_npy')

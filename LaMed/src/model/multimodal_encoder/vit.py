@@ -138,6 +138,7 @@ class ViT(nn.Module):
         post_activation="Tanh",
         qkv_bias: bool = False,
         save_attn: bool = False,
+        use_contour: bool = False,
     ) -> None:
         """
         Args:
@@ -181,6 +182,7 @@ class ViT(nn.Module):
             raise ValueError("hidden_size should be divisible by num_heads.")
         self.hidden_size = hidden_size
         self.classification = classification
+        self.use_contour = use_contour
         self.patch_embedding = PatchEmbeddingBlock(
             in_channels=in_channels,
             img_size=img_size,
@@ -191,16 +193,17 @@ class ViT(nn.Module):
             dropout_rate=dropout_rate,
             spatial_dims=spatial_dims,
         )
-        self.patch_embedding_contour = PatchEmbeddingBlock(
-            in_channels=1,
-            img_size=img_size,
-            patch_size=patch_size,
-            hidden_size=hidden_size,
-            num_heads=num_heads,
-            pos_embed=pos_embed,
-            dropout_rate=dropout_rate,
-            spatial_dims=spatial_dims,
-        )
+        if self.use_contour:
+            self.patch_embedding_contour = PatchEmbeddingBlock(
+                in_channels=1,
+                img_size=img_size,
+                patch_size=patch_size,
+                hidden_size=hidden_size,
+                num_heads=num_heads,
+                pos_embed=pos_embed,
+                dropout_rate=dropout_rate,
+                spatial_dims=spatial_dims,
+            )
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, qkv_bias, save_attn)
@@ -216,16 +219,20 @@ class ViT(nn.Module):
             #     self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
     def forward(self, x, contour):
-        x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
+        if self.use_contour:
+            print("Using contour")
+            x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
+        else:
+            x = self.patch_embedding(x)
         # print("Contour included")
-        print("x shape", x.shape)
+        # print("x shape", x.shape)
         if hasattr(self, "cls_token"):
             cls_token = self.cls_token.expand(x.shape[0], -1, -1)
             x = torch.cat((cls_token, x), dim=1)
         hidden_states_out = []
         for blk in self.blocks:
             x = blk(x)
-            print("x shape again", x.shape)
+            # print("x shape again", x.shape)
             hidden_states_out.append(x)
         x = self.norm(x)
         # if hasattr(self, "classification_head"):
@@ -239,6 +246,7 @@ class ViT3DTower(nn.Module):
         self.config = config
         self.select_layer = config.vision_select_layer
         self.select_feature = config.vision_select_feature
+        self.use_contour = config.use_contour
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
@@ -247,11 +255,12 @@ class ViT3DTower(nn.Module):
             pos_embed="perceptron",
             spatial_dims=len(self.config.patch_size),
             classification=True,
+            use_contour = self.use_contour,
         )
 
     def forward(self, images, contours):
         last_feature, hidden_states = self.vision_tower(images, contours)
-        print("Last_feature shape:", last_feature.shape)
+        # print("Last_feature shape:", last_feature.shape)
         if self.select_layer == -1:
             image_features = last_feature
         elif self.select_layer < -1:
@@ -286,6 +295,7 @@ class ViTMerlin3DTower(nn.Module):
         self.config = config
         self.select_layer = config.vision_select_layer
         self.select_feature = config.vision_select_feature
+        self.use_contour = config.use_contour
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
@@ -294,6 +304,7 @@ class ViTMerlin3DTower(nn.Module):
             pos_embed="perceptron",
             spatial_dims=len(self.config.patch_size),
             classification=True,
+            use_contour=self.use_contour
         )
 
         self.merlin = Merlin()

@@ -180,6 +180,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 images,
                 contours,
             )
+            print(inputs)
         else:
             inputs_embeds = self.get_model().embed_tokens(inputs)
 

@@ -21,6 +21,7 @@ bleu = evaluate.load("bleu")
 bertscore = evaluate.load("bertscore")
 meteor = evaluate.load("meteor")
 rouge = evaluate.load("rouge")
+target_dir = "LaMed-Phi3-4B-finetune-alpha-merlin-0002"
 
 
 def seed_everything(seed):
@@ -35,7 +36,7 @@ def seed_everything(seed):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name_or_path', type=str, default="LaMed-Phi3-4B-finetune-alpha-0002", choices=[])
+    parser.add_argument('--model_name_or_path', type=str, default=f"models/{target_dir}", choices=[])
     parser.add_argument('--max_length', type=int, default=768)
     parser.add_argument('--max_new_tokens', type=int, default=256)
     parser.add_argument('--do_sample', type=bool, default=False)
@@ -46,7 +47,7 @@ def parse_args(args=None):
     # data
     parser.add_argument('--data_root', type=str, default="./Data/data")
     parser.add_argument('--cap_data_path', type=str, default="/mym3d/Data/output.json")
-    parser.add_argument('--output_dir', type=str, default="./LaMed/output/LaMed-finetune-alpha-0002/eval_caption/")
+    parser.add_argument('--output_dir', type=str, default=f"./LaMed/output/{target_dir}/eval_caption/")
 
     parser.add_argument('--proj_out_num', type=int, default=256)
     parser.add_argument('--seg_enable', type=bool, default=True)
@@ -106,6 +107,7 @@ def main():
 
             generation = model.generate(image, contour, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
             generated_texts = tokenizer.batch_decode(generation, skip_special_tokens=True)
+            # print(generated_texts[0])
 
             result = dict()
             decoded_preds, decoded_labels = postprocess_text(generated_texts, answer)
