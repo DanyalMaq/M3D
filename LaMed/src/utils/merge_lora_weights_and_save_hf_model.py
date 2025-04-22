@@ -173,5 +173,5 @@ if __name__ == "__main__":
 # CUDA_VISIBLE_DEVICES="" python3 LaMed/src/utils/merge_lora_weights_and_save_hf_model.py \
 #   --version="" \
 #   --model_type="phi3" \
-#   --model_with_lora="LaMed/output/LaMed-Phi3-4B-finetune-alpha-merlin-0002/model_with_lora.bin" \
-#   --output_dir="models/LaMed-Phi3-4B-finetune-alpha-merlin-0002"
+#   --model_with_lora="LaMed/output/LaMed-Phi3-4B-patch-finetune-0000/model_with_lora.bin" \
+#   --output_dir="models/LaMed-Phi3-4B-patch-finetune-0000"

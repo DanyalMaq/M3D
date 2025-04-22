@@ -272,7 +272,9 @@ class DataCollator:
 def main():
     global local_rank
     parser = transformers.HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
+    # print(parser)
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    # print(model_args)
 
     local_rank = training_args.local_rank
 

@@ -15,6 +15,7 @@ class LamedMetaModel:
 
         self.config = config
         self.seg_enable = False
+        print("Meta model is being initialized")
 
         if hasattr(config, "vision_tower"):
             self.vision_tower = build_vision_tower(config)
@@ -39,30 +40,21 @@ class LamedMetaModel:
         return vision_tower
 
     def initialize_vision_modules(self, model_args):
+        print("WE ARE INITIALIZINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
         self.config.image_channel = model_args.image_channel
-        # print("Image channel:", self.config.image_channel)
         self.config.image_size = model_args.image_size
-        # print("Image size:", self.config.image_size)
         self.config.patch_size = model_args.patch_size
-        # print("Patch size:", self.config.patch_size)
 
         self.config.vision_tower = model_args.vision_tower
-        # print("Vision tower:", self.config.vision_tower)
         self.config.vision_select_layer = model_args.vision_select_layer
-        # print("Vision select layer:", self.config.vision_select_layer)
         self.config.vision_select_feature = model_args.vision_select_feature
-        # print("Vision select feature:", self.config.vision_select_feature)
 
         self.config.mm_projector_type = model_args.mm_projector_type
-        # print("MM projector type:", self.config.mm_projector_type)
         self.config.proj_layer_type = model_args.proj_layer_type
-        # print("Proj layer type:", self.config.proj_layer_type)
         self.config.proj_layer_num = model_args.proj_layer_num
-        # print("Proj layer num:", self.config.proj_layer_num)
         self.config.proj_pooling_type = model_args.proj_pooling_type
-        # print("Proj pooling type:", self.config.proj_pooling_type)
         self.config.proj_pooling_size = model_args.proj_pooling_size
-        # print("Proj pooling size:", self.config.proj_pooling_size)
+        self.config.use_contour = False
 
 
         # vision tower

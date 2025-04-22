@@ -19,6 +19,7 @@ class LamedPhi3Config(Phi3Config):
 class LamedPhi3Model(LamedMetaModel, Phi3Model):
     config_class = LamedPhi3Config
     def __init__(self, config: Phi3Config):
+        # print(config)
         super(LamedPhi3Model, self).__init__(config)
 
 

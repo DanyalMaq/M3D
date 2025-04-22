@@ -20,7 +20,7 @@ accelerate launch LaMed/src/train/train.py \
     --gradient_accumulation_steps 1 \
     --evaluation_strategy "steps" \
     --eval_accumulation_steps 1 \
-    --eval_steps 0.04 \
+    --eval_steps 0.2 \
     --save_strategy "steps" \
     --save_steps 1000 \
     --save_total_limit 1 \
