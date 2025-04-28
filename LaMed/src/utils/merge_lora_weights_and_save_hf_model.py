@@ -25,8 +25,8 @@ class ModelArguments:
 
     # image
     image_channel: int = field(default=1)
-    image_size: tuple = field(default=(32, 256, 256))
-    patch_size: tuple = field(default=(4, 16, 16))
+    image_size: tuple = field(default=(112, 256, 352))
+    patch_size: tuple = field(default=(16, 16, 32))
 
     # vision
     vision_tower: Optional[str] = field(default="vit3d") # None, "vit3d"
@@ -34,6 +34,10 @@ class ModelArguments:
     vision_select_feature: Optional[str] = field(default="patch")
     pretrain_vision_model: str = field(default=None, metadata={"help": "Path to pretrained model for ViT."})
     freeze_vision_tower: bool = field(default=False)
+    use_contour: bool = field(default=False)
+    qkv_bias: bool = field(default=False)
+    classification: bool = field(default=True)
+    pos_embed: str = field(default='perceptron')
 
     # projector
     mm_projector_type: Optional[str] = field(default='spp')
@@ -43,7 +47,7 @@ class ModelArguments:
     proj_pooling_size: int = field(default=2, metadata={"help": "Size of pooling in Perceiver."})
 
     # segvol
-    segmentation_module: str = field(default="segvol") # None, "segvol"
+    segmentation_module: str = field(default=None) # None, "segvol"
     pretrain_seg_module: str = field(default=None, metadata={"help": "Pretrained segvol model."})
 
 @dataclass
@@ -145,7 +149,7 @@ def main():
 
     print("Load weights with LoRA")
     state_dict = torch.load(model_args.model_with_lora, map_location="cpu")
-    model.load_state_dict(state_dict, strict=True)
+    model.load_state_dict(state_dict, strict=False)
 
     print("Merge weights with LoRA")
     model = model.merge_and_unload()

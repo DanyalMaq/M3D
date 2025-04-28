@@ -40,7 +40,6 @@ class LamedMetaModel:
         return vision_tower
 
     def initialize_vision_modules(self, model_args):
-        print("WE ARE INITIALIZINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG")
         self.config.image_channel = model_args.image_channel
         self.config.image_size = model_args.image_size
         self.config.patch_size = model_args.patch_size
@@ -54,7 +53,16 @@ class LamedMetaModel:
         self.config.proj_layer_num = model_args.proj_layer_num
         self.config.proj_pooling_type = model_args.proj_pooling_type
         self.config.proj_pooling_size = model_args.proj_pooling_size
-        self.config.use_contour = False
+        self.config.qkv_bias = model_args.qkv_bias
+        self.config.classification = model_args.classification
+        self.config.pos_embed = model_args.pos_embed
+             
+        use_contour = getattr(model_args, 'use_contour', None)
+        if use_contour is not None:
+            self.config.use_contour = use_contour
+        else:
+            print("Use contour value is None in lamed_arch, setting it to False")
+            self.config.use_contour = False
 
 
         # vision tower
@@ -63,17 +71,57 @@ class LamedMetaModel:
             # If you have a more robust vision encoder, try freezing the vision tower by requires_grad_(False)
             self.vision_tower.requires_grad_(not model_args.freeze_vision_tower)
 
-
+        # Vision tower pretrain
         if model_args.pretrain_vision_model is not None:
-            vision_model_weights = torch.load(model_args.pretrain_vision_model, map_location='cpu')
-            self.vision_tower.vision_tower.load_state_dict(vision_model_weights, strict=False)
+            if True: #model_args.rebuild                
+                print("Rebuilding vision tower from scratch")
+                # print(self.config)
+                loaded_state_dict = torch.load(model_args.pretrain_vision_model, map_location='cpu')
+                model_state_dict = self.vision_tower.vision_tower.state_dict()
+                # for ((k1, v1), (k2, v2)) in zip(model_state_dict.items(), loaded_state_dict.items()):
+                #     print(f"{k1}: {v1.shape}")
+                #     print(f"{k2}: {v2.shape}")
+
+                # Pop the cls_token weight from the original state_dict and store it
+                cls_token_weight = model_state_dict.pop("cls_token", None)
+
+                # Rename the keys in the new state dict for patch_embeddings
+                new_state_dict = {}
+                for key, value in loaded_state_dict.items():
+                    if "patch_embedding.patch_embeddings.weight" in key:
+                        # Rename patch_embeddings weights with correct indexing (e.g., 1 -> 0)
+                        new_key = key.replace("patch_embedding.patch_embeddings.weight", "patch_embedding.patch_embeddings.1.weight")
+                        new_state_dict[new_key] = value
+                    elif "patch_embedding.patch_embeddings.bias" in key:
+                        # Rename patch_embeddings biases with correct indexing (e.g., 1 -> 0)
+                        new_key = key.replace("patch_embedding.patch_embeddings.bias", "patch_embedding.patch_embeddings.1.bias")
+                        new_state_dict[new_key] = value
+                    else:
+                        # If it's not a patch_embedding, just retain the original key
+                        new_state_dict[key] = value
+
+                # If cls_token was popped, add it to the new state_dict
+                if cls_token_weight is not None:
+                    new_state_dict["cls_token"] = cls_token_weight
+
+                # Load the updated state dict into your model
+                self.vision_tower = build_vision_tower(self.config)
+                # for ((k1, v1), (k2, v2)) in zip(self.vision_tower.vision_tower.state_dict().items(), loaded_state_dict.items()):
+                #     print(f"{k1}: {v1.shape}")
+                #     print(f"{k2}: {v2.shape}")
+                self.vision_tower.vision_tower.load_state_dict(loaded_state_dict, strict=False)
+            else:
+                # Load the vision model weights
+                vision_model_weights = torch.load(model_args.pretrain_vision_model, map_location='cpu')
+                self.vision_tower.vision_tower.load_state_dict(vision_model_weights)
 
         self.config.mm_hidden_size = self.vision_tower.hidden_size
         # print("Hidden size", self.vision_tower.hidden_size)
 
         # mm_projector
-        if getattr(self, 'mm_projector', None) is None:
-            self.mm_projector = build_mm_projector(self.config)
+        # if getattr(self, 'mm_projector', None) is None:
+        print("building projector")
+        self.mm_projector = build_mm_projector(self.config)
 
         if model_args.pretrain_mm_mlp_adapter is not None:
             mm_projector_weights = torch.load(model_args.pretrain_mm_mlp_adapter, map_location='cpu')

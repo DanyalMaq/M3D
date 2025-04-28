@@ -23,11 +23,11 @@ def image_info(name, img):
 transforms = mtf.Compose([
     # mtf.SpatialCropd(keys=["image", "con"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
     mtf.CropForegroundd(keys=["image", "con"], source_key="image"),
-    mtf.Resized(keys=["image", "con"], spatial_size=[32,256,256],
+    mtf.Resized(keys=["image", "con"], spatial_size=[112,256,352],
                 mode=['trilinear', 'nearest'])
 ])
 
-def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin: int = 50):
+def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin: int = 60):
     """
     Crops the PET scan and segmentation mask around the lesion along the z-axis.
 
@@ -46,9 +46,10 @@ def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin
     # Remove batch dimension temporarily for easier handling
     pet = pet_image[0]
     mask = mask_image[0]
-    clipped = np.clip(pet, 0, 8)
+    clip_val = 12
+    clipped = np.clip(pet, 0, clip_val)
     # Step 2: Normalize to [0, 1]
-    pet = clipped / 8
+    pet = clipped / clip_val
 
     # Find lesion indices along z-axis
     lesion_slices = np.any(mask, axis=(1, 2))  # shape: (350,)
@@ -80,12 +81,9 @@ def process_item(item, root_dir, output_dir):
             output_item_dir = os.path.join(output_dir, item)
             os.makedirs(output_item_dir, exist_ok=True)
             dir = os.path.join(output_item_dir, "image.npy")
-            print(f"Transformed and saved: {item} to {dir}")
-            pet_image = nib.load(pet_file).get_fdata().transpose(2, 0, 1)[np.newaxis, ...]
-            mask_image = nib.load(mask_file).get_fdata().transpose(2, 0, 1)[np.newaxis, ...]
-            pet_image, mask_image = crop_pet_around_lesion(pet_image, mask_image, 32)
-
-            mask_image *= 255
+            pet_image = nib.load(pet_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
+            mask_image = nib.load(mask_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
+            pet_image, mask_image = crop_pet_around_lesion(pet_image, mask_image, 60)
 
             pair = {
                 "image": pet_image,
@@ -100,6 +98,8 @@ def process_item(item, root_dir, output_dir):
             np.save(os.path.join(output_item_dir, "contour.npy"), contour)
 
             shutil.copyfile(item_path+"/text.txt", output_item_dir+"/text.txt")
+            
+            print(f"Transformed and saved: {item} to {dir}")
             
             # affine = np.eye(4)
             # data = pet_image[0]

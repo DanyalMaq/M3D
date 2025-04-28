@@ -9,7 +9,9 @@ from dataclasses import dataclass, field
 from LaMed.src.dataset.multi_dataset import UniDatasets, CapDataset, TextDatasets, VQADataset, MyCapDataset
 from LaMed.src.model.language_model import LamedLlamaForCausalLM, LamedPhi3ForCausalLM
 from LaMed.src.train.lamed_trainer import LaMedTrainer
+import warnings
 
+warnings.filterwarnings("ignore")
 
 local_rank = None
 
@@ -31,8 +33,8 @@ class ModelArguments:
 
     # image
     image_channel: int = field(default=1)
-    image_size: tuple = field(default=(32, 256, 256))
-    patch_size: tuple = field(default=(4, 16, 16))
+    image_size: tuple = field(default=(112, 256, 352))
+    patch_size: tuple = field(default=(16, 16, 32))
 
     # vision
     vision_tower: Optional[str] = field(default="vit3d") # None, "vit3d"
@@ -41,6 +43,9 @@ class ModelArguments:
     pretrain_vision_model: str = field(default=None, metadata={"help": "Path to pretrained model for ViT."})
     freeze_vision_tower: bool = field(default=False)
     use_contour: bool = field(default=False)
+    qkv_bias: bool = field(default=False)
+    classification: bool = field(default=True)
+    pos_embed: str = field(default='perceptron')
 
     # projector
     mm_projector_type: Optional[str] = field(default='spp', metadata={"help": "spp"})
@@ -341,6 +346,7 @@ def main():
         model.gradient_checkpointing_enable()
 
     # initialize vision and seg modules on LLM
+    rank0_print("Initializing Separately in train")
     if model_args.vision_tower is not None:
         model.get_model().initialize_vision_modules(model_args=model_args)
     if model_args.segmentation_module is not None:

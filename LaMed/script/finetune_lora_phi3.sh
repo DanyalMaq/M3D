@@ -11,13 +11,10 @@ accelerate launch /mym3d/LaMed/src/train/train.py \
     --model_type phi3 \
     --lora_enable True \
     --vision_tower vit3d \
-    --pretrain_vision_model /mym3d/LaMed/pretrained_ViT.bin \
-    --pretrain_mm_mlp_adapter /mym3d/LaMed/mm_projector.bin \
-    --segmentation_module segvol \
-    --pretrain_seg_module /mym3d/LaMed/pytorch_model.bin \
+    --pretrain_vision_model /mym3d/LaMed/vit_encoder_only.pth \
     --bf16 True \
-    --output_dir /mym3d/LaMed/output/LaMed-Phi3-4B-patch-finetune-onlycontour-0000 \
-    --num_train_epochs 3 \
+    --output_dir /mym3d/LaMed/output/LaMed-Phi3-4B-patch-finetune-0001 \
+    --num_train_epochs 1 \
     --per_device_train_batch_size 2 \
     --per_device_eval_batch_size 2 \
     --gradient_accumulation_steps 1 \
@@ -37,6 +34,10 @@ accelerate launch /mym3d/LaMed/src/train/train.py \
     --dataloader_num_workers 8 \
     --report_to all \
     --model_max_length 512 \
-    --use_contour True
+    --use_contour False \
+    --qkv_bias True \
+    --classification False \
+    --pos_embed 'conv' \
+    --vision_select_feature 'no_cls_patch'
 
 # sh LaMed/script/finetune_lora_phi3.sh

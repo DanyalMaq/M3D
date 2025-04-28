@@ -36,7 +36,7 @@ def seed_everything(seed):
 
 def parse_args(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name_or_path', type=str, default=f"models/{target_dir}", choices=[])
+    parser.add_argument('--model_name_or_path', type=str, default=f"models/{target_dir}")
     parser.add_argument('--max_length', type=int, default=768)
     parser.add_argument('--max_new_tokens', type=int, default=256)
     parser.add_argument('--do_sample', type=bool, default=False)
@@ -131,4 +131,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # python3 Bench/eval/eval_caption.py
+    # python3 Bench/eval/eval_caption.py 

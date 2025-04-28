@@ -145,10 +145,10 @@ class MyCapDataset(Dataset):
 
         train_transform = mtf.Compose(
             [
-                mtf.RandRotate90d(keys=["image", "con"], prob=0.5, spatial_axes=(1, 2)),
-                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=1),
-                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=2),
-                mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=0),
+                # mtf.RandRotate90d(keys=["image", "con"], prob=0.5, spatial_axes=(1, 2)),
+                # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=1),
+                # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=2),
+                # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=0),
                 mtf.RandScaleIntensityd(keys=["image", "con"], factors=0.1, prob=0.5),
                 mtf.RandShiftIntensityd(keys=["image", "con"], offsets=0.1, prob=0.5),
 

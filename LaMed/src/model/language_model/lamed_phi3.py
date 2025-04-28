@@ -28,7 +28,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
 
     def __init__(self, config):
         super(LamedPhi3ForCausalLM, self).__init__(config)
-        print("starting")
+        print("starting inside phi3")
         self.model = LamedPhi3Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)

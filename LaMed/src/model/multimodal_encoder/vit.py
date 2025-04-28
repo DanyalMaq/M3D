@@ -174,6 +174,7 @@ class ViT(nn.Module):
         """
 
         super().__init__()
+        print("The bias term is:", qkv_bias)
 
         if not (0 <= dropout_rate <= 1):
             raise ValueError("dropout_rate should be between 0 and 1.")
@@ -183,6 +184,7 @@ class ViT(nn.Module):
         self.hidden_size = hidden_size
         self.classification = classification
         self.use_contour = use_contour
+        self.qkv_bias = qkv_bias
         self.patch_embedding = PatchEmbeddingBlock(
             in_channels=in_channels,
             img_size=img_size,
@@ -206,7 +208,7 @@ class ViT(nn.Module):
             )
         self.blocks = nn.ModuleList(
             [
-                TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, qkv_bias, save_attn)
+                TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, self.qkv_bias, save_attn)
                 for i in range(num_layers)
             ]
         )
@@ -246,16 +248,30 @@ class ViT3DTower(nn.Module):
         self.config = config
         self.select_layer = config.vision_select_layer
         self.select_feature = config.vision_select_feature
-        self.use_contour = config.use_contour
+        self.classification = getattr(config, 'classification', True)
+        self.pos_embed = getattr(config, 'pos_embed', 'perceptron')
+        use_contour = getattr(config, 'use_contour', None)
+        if use_contour is not None:
+            self.use_contour = config.use_contour
+        else:
+            print("Use contour value is None in vit, setting it to False")
+            self.use_contour = False
+        qkv_bias = getattr(config, 'use_contour', None)
+        if qkv_bias is not None:
+            self.qkv_bias = config.qkv_bias
+        else:
+            print("qkv value is None in vit, setting it to False")
+            self.qkv_bias = False
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
             img_size=self.config.image_size,
             patch_size=self.config.patch_size,
-            pos_embed="perceptron",
+            pos_embed=self.pos_embed,
             spatial_dims=len(self.config.patch_size),
-            classification=True,
+            classification=self.classification,
             use_contour = self.use_contour,
+            qkv_bias = self.qkv_bias
         )
 
     def forward(self, images, contours):
@@ -270,6 +286,8 @@ class ViT3DTower(nn.Module):
 
         if self.select_feature == 'patch':
             image_features = image_features[:, 1:]
+        elif self.select_feature == 'no_cls_patch':
+            image_features = image_features
         elif self.select_feature == 'cls_patch':
             image_features = image_features
         else:
@@ -295,7 +313,12 @@ class ViTMerlin3DTower(nn.Module):
         self.config = config
         self.select_layer = config.vision_select_layer
         self.select_feature = config.vision_select_feature
-        self.use_contour = config.use_contour
+        use_contour = getattr(config, 'use_contour', None)
+        if use_contour is not None:
+            self.use_contour = use_contour
+        else:
+            print("Use contour value is None in vit, setting it to False")
+            self.use_contour = False
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
