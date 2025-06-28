@@ -7,7 +7,7 @@ def build_vision_tower(config, **kwargs):
     # print(kwargs)
     # print("Contour value:", use_contour)
     # if use_contour is None:
-    #     config.use_contour = False
+    #     config.use_contour = False)
     if 'vit3d' in vision_tower.lower():
         return ViT3DTower(config, **kwargs)
     elif 'vitmerlin3d' in vision_tower.lower():

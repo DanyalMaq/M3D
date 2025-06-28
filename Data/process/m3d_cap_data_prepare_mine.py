@@ -22,12 +22,12 @@ def image_info(name, img):
 
 transforms = mtf.Compose([
     # mtf.SpatialCropd(keys=["image", "con"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
-    mtf.CropForegroundd(keys=["image", "con"], source_key="image"),
-    mtf.Resized(keys=["image", "con"], spatial_size=[112,256,352],
-                mode=['trilinear', 'nearest'])
+    mtf.CropForegroundd(keys=["pet", "ct", "con"], source_key="pet"),
+    mtf.Resized(keys=["pet", "ct", "con"], spatial_size=[32,256,256],
+                mode=['trilinear', 'trilinear', 'nearest'])
 ])
 
-def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin: int = 60):
+def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin: int = 60, clip_val_min: int = 0, clip_val_max: int = 12):
     """
     Crops the PET scan and segmentation mask around the lesion along the z-axis.
 
@@ -46,10 +46,9 @@ def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin
     # Remove batch dimension temporarily for easier handling
     pet = pet_image[0]
     mask = mask_image[0]
-    clip_val = 12
-    clipped = np.clip(pet, 0, clip_val)
+    clipped = np.clip(pet, clip_val_min, clip_val_max)
     # Step 2: Normalize to [0, 1]
-    pet = clipped / clip_val
+    pet = (clipped - clip_val_min) / (clip_val_max - clip_val_min)
 
     # Find lesion indices along z-axis
     lesion_slices = np.any(mask, axis=(1, 2))  # shape: (350,)
@@ -77,24 +76,30 @@ def process_item(item, root_dir, output_dir):
     if os.path.isdir(item_path):
         pet_file = os.path.join(item_path, "pet.nii.gz")
         mask_file = os.path.join(item_path, "mask.nii.gz")
+        ct_file = os.path.join(item_path, "ct.nii.gz")
         if os.path.exists(pet_file) and os.path.exists(mask_file):
             output_item_dir = os.path.join(output_dir, item)
             os.makedirs(output_item_dir, exist_ok=True)
             dir = os.path.join(output_item_dir, "image.npy")
             pet_image = nib.load(pet_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
             mask_image = nib.load(mask_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
-            pet_image, mask_image = crop_pet_around_lesion(pet_image, mask_image, 60)
+            ct_image = nib.load(ct_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
+            ct_image, _ = crop_pet_around_lesion(ct_image, mask_image, 80, -300, 400)
+            pet_image, mask_image = crop_pet_around_lesion(pet_image, mask_image, 80, 0, 12)
 
             pair = {
-                "image": pet_image,
+                "pet": pet_image,
+                "ct": ct_image,
                 "con": mask_image,
             }
 
             items = transforms(pair)
-            image = items['image']
+            pet = items['pet']
+            ct = items['ct']
             contour = items['con']
 
-            np.save(os.path.join(output_item_dir, "image.npy"), image)
+            np.save(os.path.join(output_item_dir, "pet.npy"), pet)
+            np.save(os.path.join(output_item_dir, "ct.npy"), ct)
             np.save(os.path.join(output_item_dir, "contour.npy"), contour)
 
             shutil.copyfile(item_path+"/text.txt", output_item_dir+"/text.txt")
@@ -131,10 +136,10 @@ def create_dataset_parallel(root_dir, output_dir):
         for future in concurrent.futures.as_completed(futures):
             pass  # You can add error handling or other tasks here if needed
 
-create_dataset_parallel("../training/", "../data/training_npy/")
+create_dataset_parallel("../training/", "../data/training_npy_ct/")
 print("Transformation complete training.")
 
-create_dataset_parallel("../testing/", "../data/testing_npy/")
+create_dataset_parallel("../testing/", "../data/testing_npy_ct/")
 print("Transformation complete testing.")
 
 # for item in os.listdir("../training/"):

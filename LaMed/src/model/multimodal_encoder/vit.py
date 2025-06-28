@@ -20,98 +20,9 @@ import torch.nn.functional as F
 from monai.networks.blocks.patchembedding import PatchEmbeddingBlock
 from monai.networks.blocks.transformerblock import TransformerBlock
 
+from .cross_attn import EfficientCrossAttention
+
 from merlin import Merlin
-
-class CrossAttentionBlock(nn.Module):
-    def __init__(self, embed_dim=768, num_heads=8, dropout=0.1):
-        super().__init__()
-        self.project_kv = nn.Linear(1, embed_dim)  # Project 1D features into embed_dim
-        self.attn = nn.MultiheadAttention(embed_dim=embed_dim, num_heads=num_heads, batch_first=True)
-        self.norm_q = nn.LayerNorm(embed_dim)
-        self.norm_kv = nn.LayerNorm(embed_dim)
-        self.dropout = nn.Dropout(dropout)
-        self.norm_out = nn.LayerNorm(embed_dim)
-
-    def forward(self, query, kv):
-        """
-        query: shape (B, 2048, 768)
-        kv: shape (B, 2048)
-        """
-        B, seq_len, d_q = query.shape
-
-        # Project kv from (B, 2048) -> (B, 2048, 768)
-        kv = kv.unsqueeze(-1) # (B, 2048, 1)
-        kv_proj = self.project_kv(kv)  # (B, 2048, 768)
-
-        # Normalize inputs
-        query = self.norm_q(query)
-        kv_proj = self.norm_kv(kv_proj)
-
-        # Perform multihead attention
-        # MHA expects (B, seq, dim) if batch_first=True
-        out, attn_weights = self.attn(query, kv_proj, kv_proj)  # Q, K, V all shape (B, 2048, 768)
-
-        # Residual + dropout + norm (Post-LN)
-        out = self.dropout(out)
-        out = self.norm_out(out + query)
-        
-        return out, attn_weights
-
-class EfficientCrossAttention(nn.Module):
-    def __init__(self, embed_dim=768, num_heads=8):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.num_heads = num_heads
-        self.head_dim = embed_dim // num_heads
-
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
-
-        self.q_proj = nn.Linear(embed_dim, embed_dim)
-        self.k_proj = nn.Linear(2048, embed_dim)
-        self.v_proj = nn.Linear(2048, embed_dim)
-
-        self.out_proj = nn.Linear(embed_dim, embed_dim)
-
-        self.norm_q = nn.LayerNorm(embed_dim)
-        self.norm_kv = nn.LayerNorm(embed_dim)
-
-    def reshape_heads(self, x):
-        # (B, L, D) -> (B, num_heads, L, head_dim)
-        B, L, D = x.size()
-        x = x.view(B, L, self.num_heads, self.head_dim)
-        return x.transpose(1, 2)  # (B, num_heads, L, head_dim)
-
-    def forward(self, query, kv):
-        """
-        query: shape (B, 2048, 768)
-        kv: shape (B, 2048)
-        """
-        B, L, _ = query.shape
-
-        query = self.norm_q(query)
-        kv = self.k_proj(kv)  # (B, 2048, 768)
-        kv = self.norm_kv(kv)
-
-        # Project Q, K, V
-        Q = self.q_proj(query)     # (B, 2048, 768)
-        K = kv                     # K already projected and normalized
-        V = self.v_proj(kv)        # (B, 2048, 768)
-
-        # Reshape for multi-head
-        Q = self.reshape_heads(Q)  # (B, num_heads, 2048, head_dim)
-        K = self.reshape_heads(K)
-        V = self.reshape_heads(V)
-
-        # Scaled dot-product attention
-        attn_output = F.scaled_dot_product_attention(Q, K, V, dropout_p=0.0, is_causal=False)
-
-        # Merge heads
-        attn_output = attn_output.transpose(1, 2).reshape(B, L, self.embed_dim)
-
-        # Final linear projection
-        out = self.out_proj(attn_output)  # (B, 2048, 768)
-
-        return out 
 
 class ViT(nn.Module):
     """
@@ -220,12 +131,14 @@ class ViT(nn.Module):
             # else:
             #     self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
-    def forward(self, x, contour):
+    def forward(self, x, contour=None):
+        # print(x.shape)
         if self.use_contour:
             print("Using contour")
             x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
         else:
             x = self.patch_embedding(x)
+        # print(x.shape)
         # print("Contour included")
         # print("x shape", x.shape)
         if hasattr(self, "cls_token"):
@@ -250,18 +163,9 @@ class ViT3DTower(nn.Module):
         self.select_feature = config.vision_select_feature
         self.classification = getattr(config, 'classification', True)
         self.pos_embed = getattr(config, 'pos_embed', 'perceptron')
-        use_contour = getattr(config, 'use_contour', None)
-        if use_contour is not None:
-            self.use_contour = config.use_contour
-        else:
-            print("Use contour value is None in vit, setting it to False")
-            self.use_contour = False
-        qkv_bias = getattr(config, 'use_contour', None)
-        if qkv_bias is not None:
-            self.qkv_bias = config.qkv_bias
-        else:
-            print("qkv value is None in vit, setting it to False")
-            self.qkv_bias = False
+        self.use_contour = getattr(config, 'use_contour', False)
+        self.qkv_bias = getattr(config, 'qkv_bias', False)
+        self.use_ct = getattr(config, 'use_ct', False)
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
@@ -273,9 +177,20 @@ class ViT3DTower(nn.Module):
             use_contour = self.use_contour,
             qkv_bias = self.qkv_bias
         )
+        if self.use_ct:
+            self.ct_tower = ViT(
+                in_channels=self.config.image_channel,
+                img_size=self.config.image_size,
+                patch_size=self.config.patch_size,
+                pos_embed=self.pos_embed,
+                spatial_dims=len(self.config.patch_size),
+                classification=False,
+                use_contour = False,
+                qkv_bias = self.qkv_bias
+            )
 
-    def forward(self, images, contours):
-        last_feature, hidden_states = self.vision_tower(images, contours)
+    def forward(self, pet, contours, ct=None):
+        last_feature, hidden_states = self.vision_tower(pet, contours)
         # print("Last_feature shape:", last_feature.shape)
         if self.select_layer == -1:
             image_features = last_feature
@@ -286,6 +201,11 @@ class ViT3DTower(nn.Module):
 
         if self.select_feature == 'patch':
             image_features = image_features[:, 1:]
+            if self.use_ct:
+                if ct is None: raise Exception("No CTs passed even though CT is true")
+                print("Using CT")
+                last_feature_ct, hidden_states_ct = self.ct_tower(ct)
+                image_features = torch.cat([image_features, last_feature_ct], dim=-1)
         elif self.select_feature == 'no_cls_patch':
             image_features = image_features
         elif self.select_feature == 'cls_patch':
@@ -337,7 +257,7 @@ class ViTMerlin3DTower(nn.Module):
     def forward(self, images, contours):
         # Separately encode images
         last_feature, hidden_states = self.vision_tower(images, contours) # (bsz, 2048, 768)
-        merlin_features = self.merlin(images) # (bsz, 2048)
+        merlin_features = self.merlin(images) # (bsz, 2048), mayb project this to the same embedding dim
 
         # Determine the layer of the vision transformer to extract features from (Have fusion here later as well)
         if self.select_layer == -1:

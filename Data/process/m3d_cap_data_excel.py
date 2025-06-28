@@ -7,48 +7,54 @@ def create_json_from_directory(train, test):
     # Traverse the directory and its subdirectories
     print(train)
     for subdir, _, files in os.walk(train):
-        image_npy_file = None
+        pet_npy_file = None
         contour_npy_file = None
         txt_file = None
         
         
         # Identify the .npy and .txt files
         for file in files:
-            if file.endswith('.npy') and file.startswith('image'):
-                image_npy_file = os.path.join(subdir, file)
+            if file.endswith('.npy') and file.startswith('pet'):
+                pet_npy_file = os.path.join(subdir, file)
             elif file.endswith('.txt'):
                 txt_file = os.path.join(subdir, file)
             elif file.endswith('.npy') and file.startswith('contour'):
-                contour_npy_file = os.path.join(subdir, file) 
+                contour_npy_file = os.path.join(subdir, file)
+            elif file.endswith('.npy') and file.startswith('ct'):
+                ct_npy_file = os.path.join(subdir, file) 
         
         # If both .npy and .txt files exist in the subdir, add to the data
-        if image_npy_file and txt_file and contour_npy_file:
+        if pet_npy_file and txt_file and contour_npy_file and ct_npy_file:
             data["train"].append({
-                "image": image_npy_file,
+                "pet": pet_npy_file,
                 "contour": contour_npy_file,
+                "ct": ct_npy_file,
                 "text": txt_file
             })
         
     for subdir, _, files in os.walk(test):
-        image_npy_file = None
+        pet_npy_file = None
         contour_npy_file = None
         txt_file = None
 
         
         # Identify the .npy and .txt files
         for file in files:
-            if file.endswith('.npy') and file.startswith('image'):
-                image_npy_file = os.path.join(subdir, file)
+            if file.endswith('.npy') and file.startswith('pet'):
+                pet_npy_file = os.path.join(subdir, file)
             elif file.endswith('.txt'):
                 txt_file = os.path.join(subdir, file)
             elif file.endswith('.npy') and file.startswith('contour'):
                 contour_npy_file = os.path.join(subdir, file) 
+            elif file.endswith('.npy') and file.startswith('ct'):
+                ct_npy_file = os.path.join(subdir, file) 
         
         # If both .npy and .txt files exist in the subdir, add to the data
-        if image_npy_file and txt_file and contour_npy_file:
+        if pet_npy_file and txt_file and contour_npy_file and ct_npy_file:
             data["validation"].append({
-                "image": image_npy_file,
+                "pet": pet_npy_file,
                 "contour": contour_npy_file,
+                "ct": ct_npy_file,
                 "text": txt_file
             })
     
@@ -57,4 +63,4 @@ def create_json_from_directory(train, test):
         json.dump(data, json_file, indent=4)
 
 # Replace 'your_directory_path' with the path to the root directory
-create_json_from_directory('../data/training_npy', '../data/testing_npy')
+create_json_from_directory('../data/training_npy_ct', '../data/testing_npy_ct')

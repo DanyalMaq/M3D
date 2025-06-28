@@ -25,8 +25,8 @@ class ModelArguments:
 
     # image
     image_channel: int = field(default=1)
-    image_size: tuple = field(default=(112, 256, 352))
-    patch_size: tuple = field(default=(16, 16, 32))
+    image_size: tuple = field(default=(32, 256, 256))
+    patch_size: tuple = field(default=(4, 16, 16))
 
     # vision
     vision_tower: Optional[str] = field(default="vit3d") # None, "vit3d"
@@ -38,6 +38,7 @@ class ModelArguments:
     qkv_bias: bool = field(default=False)
     classification: bool = field(default=True)
     pos_embed: str = field(default='perceptron')
+    use_ct: bool = field(default=False)
 
     # projector
     mm_projector_type: Optional[str] = field(default='spp')

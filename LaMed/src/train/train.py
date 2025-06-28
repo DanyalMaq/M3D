@@ -31,10 +31,12 @@ class ModelArguments:
     tune_mm_mlp_adapter: bool = field(default=False, metadata={"help": "Used in pretrain: tune mm_projector and embed_tokens"})
     pretrain_mm_mlp_adapter: Optional[str] = field(default=None, metadata={"help": "Path to pretrained mm_projector and embed_tokens."})
 
+    tune_mask_channel: Optional[bool] = field(default=False)
+
     # image
     image_channel: int = field(default=1)
-    image_size: tuple = field(default=(112, 256, 352))
-    patch_size: tuple = field(default=(16, 16, 32))
+    image_size: tuple = field(default=(32, 256, 256))
+    patch_size: tuple = field(default=(4, 16, 16))
 
     # vision
     vision_tower: Optional[str] = field(default="vit3d") # None, "vit3d"
@@ -46,6 +48,7 @@ class ModelArguments:
     qkv_bias: bool = field(default=False)
     classification: bool = field(default=True)
     pos_embed: str = field(default='perceptron')
+    use_ct: bool = field(default=False)
 
     # projector
     mm_projector_type: Optional[str] = field(default='spp', metadata={"help": "spp"})
@@ -229,11 +232,12 @@ class DataCollator:
         self.seg_enable = seg_enable
     def __call__(self, batch: list) -> dict:
         if self.seg_enable:
-            images, contours, input_ids, labels, attention_mask, segs = tuple(
-                [b[key] for b in batch] for key in ('image', 'contour', 'input_id', 'label', 'attention_mask', 'seg'))
+            pets, contours, cts, input_ids, labels, attention_mask, segs = tuple(
+                [b[key] for b in batch] for key in ('pet', 'contour', 'ct', 'input_id', 'label', 'attention_mask', 'seg'))
 
-            images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+            pets = torch.cat([_.unsqueeze(0) for _ in pets], dim=0)
             contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
+            cts = torch.cat([_.unsqueeze(0) for _ in cts], dim=0)
             input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
             labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
             attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
@@ -246,26 +250,29 @@ class DataCollator:
             segs = torch.cat(segs, dim=0)
 
             return_dict = dict(
-                images=images,
+                pets=pets,
                 contours=contours,
+                cts=cts,
                 input_ids=input_ids,
                 labels=labels,
                 attention_mask=attention_mask,
                 segs=segs,
             )
         else:
-            images, contours, input_ids, labels, attention_mask = tuple(
-                [b[key] for b in batch] for key in ('image', 'contour', 'input_id', 'label', 'attention_mask'))
+            pets, contours, cts, input_ids, labels, attention_mask, segs = tuple(
+                [b[key] for b in batch] for key in ('pet', 'contour', 'ct', 'input_id', 'label', 'attention_mask', 'seg'))
 
-            images = torch.cat([_.unsqueeze(0) for _ in images], dim=0)
+            pets = torch.cat([_.unsqueeze(0) for _ in pets], dim=0)
             contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
+            cts = torch.cat([_.unsqueeze(0) for _ in cts], dim=0)
             input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
             labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
             attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
 
             return_dict = dict(
-                images=images,
+                pets=pets,
                 contours=contours,
+                cts=cts,
                 input_ids=input_ids,
                 labels=labels,
                 attention_mask=attention_mask,
@@ -346,17 +353,22 @@ def main():
         model.gradient_checkpointing_enable()
 
     # initialize vision and seg modules on LLM
-    rank0_print("Initializing Separately in train")
+    # rank0_print("Initializing Separately in train")
     if model_args.vision_tower is not None:
         model.get_model().initialize_vision_modules(model_args=model_args)
     if model_args.segmentation_module is not None:
         model.get_model().initialize_seg_modules(model_args=model_args)
 
     model.config.tune_mm_mlp_adapter = training_args.tune_mm_mlp_adapter = model_args.tune_mm_mlp_adapter
+    model.config.tune_mask_channel = training_args.tune_mask_channel = model_args.tune_mask_channel
     if model_args.tune_mm_mlp_adapter:
         model.requires_grad_(False)
         for p in model.get_model().mm_projector.parameters():
             p.requires_grad = True
+    if model_args.tune_mask_channel:
+        print(model)
+        exit()
+        model.requires_grad_(False)
 
     model_args.num_new_tokens = 4
     model.initialize_vision_tokenizer(model_args, tokenizer)
@@ -387,10 +399,6 @@ def main():
 
         # model.print_trainable_parameters()
 
-    if model_args.tune_mm_mlp_adapter:
-        model.requires_grad_(False)
-        for p in model.get_model().mm_projector.parameters():
-            p.requires_grad = True
     # model.print_trainable_parameters()
     
 

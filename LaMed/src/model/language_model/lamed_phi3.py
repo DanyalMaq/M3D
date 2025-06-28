@@ -42,8 +42,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
 
     def forward(
             self,
-            images: Optional[torch.FloatTensor] = None,
+            pets: Optional[torch.FloatTensor] = None,
             contours: Optional[torch.FloatTensor] = None,
+            cts: Optional[torch.FloatTensor] = None,
             input_ids: torch.LongTensor = None,
             labels: Optional[torch.LongTensor] = None,
             attention_mask: Optional[torch.Tensor] = None,
@@ -75,8 +76,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 attention_mask,
                 past_key_values,
                 labels,
-                images,
+                pets,
                 contours,
+                cts,
             )
 
         try:
@@ -127,7 +129,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 seg_prompts.append(seg_prompt)
 
             seg_prompts = torch.cat(seg_prompts, dim=0)
-            logits = self.get_model().seg_module(images[seg_ids], text_emb=seg_prompts)
+            logits = self.get_model().seg_module(pets[seg_ids], text_emb=seg_prompts)
             loss_dice = self.get_model().dice_loss(logits, segs[seg_ids])
             loss_bce = self.get_model().bce_loss(logits, segs[seg_ids])
             seg_loss = loss_dice + loss_bce
@@ -151,8 +153,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     @torch.no_grad()
     def generate(
         self,
-        images: Optional[torch.Tensor] = None,
+        pets: Optional[torch.Tensor] = None,
         contours: Optional[torch.Tensor] = None,
+        cts: Optional[torch.Tensor] = None,
         inputs: Optional[torch.Tensor] = None,
         seg_enable: bool = False,
         **kwargs,
@@ -164,7 +167,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
         if "inputs_embeds" in kwargs:
             raise NotImplementedError("`inputs_embeds` is not supported")
 
-        if images is not None:
+        if pets is not None:
             (
                 inputs,
                 position_ids,
@@ -178,8 +181,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 attention_mask,
                 None,
                 None,
-                images,
+                pets,
                 contours,
+                cts,
             )
             print(inputs)
         else:
@@ -218,7 +222,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 seg_prompts.append(seg_prompt)
 
             seg_prompts = torch.cat(seg_prompts, dim=0)
-            logits = self.get_model().seg_module(images, seg_prompts)
+            logits = self.get_model().seg_module(pets, seg_prompts)
             logits[noseg_ids] = -torch.inf
 
             return output_ids, logits
@@ -232,14 +236,16 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
 
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None,
                                       inputs_embeds=None, **kwargs):
-        images = kwargs.pop("images", None)
+        pets = kwargs.pop("pes", None)
         contours = kwargs.pop("contours", None)
+        cts = kwargs.pop("cts", None)
         inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
         )
-        if images is not None:
-            inputs['images'] = images
+        if pets is not None:
+            inputs['pets'] = pets
             inputs['contours'] = contours
+            inputs['cts'] = cts
         return inputs
 
 

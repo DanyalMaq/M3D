@@ -79,6 +79,7 @@ class FullLinear(nn.Module):
 
 def build_mm_projector(config, delay_load=False, **kwargs):
     projector_type = getattr(config, 'mm_projector_type')
+    use_ct = getattr(config, "use_ct", False)
 
     if projector_type == 'linear':
         return FullLinear(config)
@@ -91,7 +92,8 @@ def build_mm_projector(config, delay_load=False, **kwargs):
                                         layer_type=config.proj_layer_type,
                                         layer_num=config.proj_layer_num,
                                         pooling_type=config.proj_pooling_type,
-                                        pooling_size=config.proj_pooling_size)
+                                        pooling_size=config.proj_pooling_size,
+                                        use_ct=use_ct,)
 
 
     elif projector_type == 'identity':

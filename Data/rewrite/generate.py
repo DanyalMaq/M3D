@@ -20,7 +20,7 @@ def generate(model: AutoModelForCausalLM = None, tokenizer: AutoTokenizer = None
     if any([model is None, tokenizer is None, text is None]):
         print("Something was none in generate")
 
-    text = "Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60)."
+    # text = "Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60)."
     prompt = f"""
     You are an expert in radiology report parsing.
 
@@ -122,18 +122,52 @@ def batch_generate(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, texts:
 def main():
     parser = argparse.ArgumentParser(description="Generate formatted radiology information.")
     parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct", help="Path or name of the model")
-    parser.add_argument("--text", type=str, default="Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60).", help="Input radiology text")
+    # parser.add_argument("--text", type=str, default="Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60).", help="Input radiology text")
 
     args = parser.parse_args()
 
-    text = "Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60)."
-    complete = [text, text]
+    # text = "Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60)."
+    # complete = [text, text]
 
     model, tokenizer = make_model(args.model_path)
     # r = generate(model, tokenizer, args.text)
-    r = batch_generate(model, tokenizer, complete)
+    # r = batch_generate(model, tokenizer, complete)
     print("printing all responses")
-    print(r)
+    # print(r)
+
+    import os
+
+    # Your generate function (assumed already defined elsewhere)
+    # from your_module import generate
+
+    BASE_DIR = '/mym3d/Data/data/testing_npy_ct'
+    print(os.listdir(BASE_DIR))
+
+    for root, dirs, files in os.walk(BASE_DIR):
+        if 'text.txt' in files:
+            text_path = os.path.join(root, 'text.txt')
+            struct_path = os.path.join(root, 'struct.txt')
+            
+            # if os.path.exists(struct_path):
+            #     print(f"Skipping {root}: struct.txt already exists.")
+            #     continue
+            
+            try:
+                text = None
+                with open(text_path, 'r', encoding='utf-8') as f:
+                    text = f.read().strip()
+
+                # Assuming generate() returns a string
+                result = generate(model, tokenizer, text)
+                print(result)
+
+                with open(struct_path, 'w', encoding='utf-8') as f:
+                    f.write(result)
+
+                print(f"Created struct.txt for {root}")
+            except Exception as e:
+                print(f"Error processing {root}: {e}")
+
 
 
 if __name__ == "__main__":

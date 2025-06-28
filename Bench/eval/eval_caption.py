@@ -102,10 +102,12 @@ def main():
             answer = sample['answer']
 
             input_id = tokenizer(question, return_tensors="pt")['input_ids'].to(device=device)
-            image = sample["image"].to(device=device)
+            pet = sample["pet"].to(device=device)
             contour = sample["contour"].to(device=device)
+            ct = sample["ct"].to(device=device)
 
-            generation = model.generate(image, contour, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
+
+            generation = model.generate(pet, contour, ct, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
             generated_texts = tokenizer.batch_decode(generation, skip_special_tokens=True)
             # print(generated_texts[0])
 
@@ -114,19 +116,22 @@ def main():
             # accuracy_score = accuracy.compute(predictions=decoded_preds, references=decoded_labels)
             # result["accuracy"] = accuracy_score['accuracy']
 
-            bleu_score = bleu.compute(predictions=decoded_preds, references=decoded_labels, max_order=1)
-            result["bleu"] = bleu_score['bleu']
+            try:
+                bleu_score = bleu.compute(predictions=decoded_preds, references=decoded_labels, max_order=1)
+                result["bleu"] = bleu_score['bleu']
 
-            rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels, rouge_types=['rouge1'])
-            result["rouge1"] = rouge_score['rouge1']
+                rouge_score = rouge.compute(predictions=decoded_preds, references=decoded_labels, rouge_types=['rouge1'])
+                result["rouge1"] = rouge_score['rouge1']
 
-            meteor_score = meteor.compute(predictions=decoded_preds, references=decoded_labels)
-            result["meteor"] = meteor_score['meteor']
+                meteor_score = meteor.compute(predictions=decoded_preds, references=decoded_labels)
+                result["meteor"] = meteor_score['meteor']
 
-            # bert_score = bertscore.compute(predictions=decoded_preds, references=decoded_labels, lang="en")
-            # result["bert_f1"] = sum(bert_score['f1']) / len(bert_score['f1'])
+                # bert_score = bertscore.compute(predictions=decoded_preds, references=decoded_labels, lang="en")
+                # result["bert_f1"] = sum(bert_score['f1']) / len(bert_score['f1'])
 
-            writer.writerow([question[0], answer[0], generated_texts[0], result["bleu"], result["rouge1"], result["meteor"]]) # , result["bert_f1"]
+                writer.writerow([question[0], answer[0], generated_texts[0], result["bleu"], result["rouge1"], result["meteor"]]) # , result["bert_f1"]
+            except:
+                print("Had an issue", answer[0])
 
 
 if __name__ == "__main__":

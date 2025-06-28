@@ -127,7 +127,6 @@ class ITRDataset(Dataset):
                 idx = random.randint(0, len(self.data_list) - 1)
 
 
-
 class MyCapDataset(Dataset):
     def __init__(self, args, tokenizer, mode="train"):
         self.args = args
@@ -149,16 +148,16 @@ class MyCapDataset(Dataset):
                 # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=1),
                 # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=2),
                 # mtf.RandFlipd(keys=["image", "con"], prob=0.10, spatial_axis=0),
-                mtf.RandScaleIntensityd(keys=["image", "con"], factors=0.1, prob=0.5),
-                mtf.RandShiftIntensityd(keys=["image", "con"], offsets=0.1, prob=0.5),
+                mtf.RandScaleIntensityd(keys=["pet", "ct", "con"], factors=0.1, prob=0.2),
+                mtf.RandShiftIntensityd(keys=["pet", "ct", "con"], offsets=0.1, prob=0.2),
 
-                mtf.ToTensord(keys=["image", "con"], dtype=torch.float),
+                mtf.ToTensord(keys=["pet", "ct", "con"], dtype=torch.float),
             ]
         )
 
         val_transform = mtf.Compose(
                 [
-                    mtf.ToTensord(keys=["image", "con"], dtype=torch.float),
+                    mtf.ToTensord(keys=["pet", "ct", "con"], dtype=torch.float),
                 ]
             )
         set_track_meta(False)
@@ -178,22 +177,27 @@ class MyCapDataset(Dataset):
         for _ in range(max_attempts):
             try:
                 data = self.data_list[idx]
-                image_path = data["image"]
+                pet_path = data["pet"]
+                ct_path = data["ct"]
                 contour_path = data["contour"]
-                image_abs_path = os.path.join(self.data_root, image_path)
+                pet_abs_path = os.path.join(self.data_root, pet_path)
+                ct_abs_path = os.path.join(self.data_root, ct_path)
                 contour_abs_path = os.path.join(self.data_root, contour_path)
 
-                image = np.load(image_abs_path)  # nomalized 0-1, C,D,H,W
+                pet = np.load(pet_abs_path)  # nomalized 0-1, C,D,H,W
+                ct = np.load(ct_abs_path)  # nomalized 0-1, C,D,H,W
                 contour = np.load(contour_abs_path)  # nomalized 0-1, C,D,H,W
                 # image = np.load(img_abs_path)[np.newaxis, ...]  # nomalized
 
                 item = {
-                    'image': image,
+                    'pet': pet,
+                    'ct': ct,
                     'con': contour,
                 }
 
                 it = self.transform(item)
-                image = it['image']
+                pet = it['pet']
+                ct = it['ct']
                 contour = it['con']
 
                 text_path = data["text"]
@@ -233,8 +237,9 @@ class MyCapDataset(Dataset):
                     label[label == self.tokenizer.pad_token_id] = -100
 
                 ret = {
-                    'image': image,
+                    'pet': pet,
                     'contour': contour,
+                    'ct': ct,
                     'input_id': input_id,
                     'label': label,
                     'attention_mask': attention_mask,
@@ -243,7 +248,7 @@ class MyCapDataset(Dataset):
                     'question_type': "Caption",
                 }
                 if self.args.seg_enable:
-                    ret.update({'seg': torch.zeros_like(image)})
+                    ret.update({'seg': torch.zeros_like(pet)})
 
                 return ret
 

@@ -56,6 +56,8 @@ class LamedMetaModel:
         self.config.qkv_bias = model_args.qkv_bias
         self.config.classification = model_args.classification
         self.config.pos_embed = model_args.pos_embed
+        self.config.use_ct = getattr(model_args, 'use_ct', False)
+        print("CT value is", self.config.use_ct)
              
         use_contour = getattr(model_args, 'use_contour', None)
         if use_contour is not None:
@@ -73,54 +75,56 @@ class LamedMetaModel:
 
         # Vision tower pretrain
         if model_args.pretrain_vision_model is not None:
-            if True: #model_args.rebuild                
-                print("Rebuilding vision tower from scratch")
-                # print(self.config)
-                loaded_state_dict = torch.load(model_args.pretrain_vision_model, map_location='cpu')
-                model_state_dict = self.vision_tower.vision_tower.state_dict()
-                # for ((k1, v1), (k2, v2)) in zip(model_state_dict.items(), loaded_state_dict.items()):
-                #     print(f"{k1}: {v1.shape}")
-                #     print(f"{k2}: {v2.shape}")
+            # Load the vision model weights
+            print("Loading weights and rebuilding vision tower")
+            self.vision_tower = build_vision_tower(self.config)
+            vision_model_weights = torch.load(model_args.pretrain_vision_model, map_location='cpu')
+            self.vision_tower.vision_tower.load_state_dict(vision_model_weights, strict=False)
+            if self.config.use_ct:
+                self.vision_tower.ct_tower.load_state_dict(vision_model_weights, strict=False)
+            # # if True: #model_args.rebuild                
+            #     # print("Rebuilding vision tower from scratch")
+            #     # print(self.config)
+            #     loaded_state_dict = torch.load(model_args.pretrain_vision_model, map_location='cpu')
+            #     model_state_dict = self.vision_tower.vision_tower.state_dict()
+            #     # for ((k1, v1), (k2, v2)) in zip(model_state_dict.items(), loaded_state_dict.items()):
+            #     #     print(f"{k1}: {v1.shape}")
+            #     #     print(f"{k2}: {v2.shape}")
 
-                # Pop the cls_token weight from the original state_dict and store it
-                cls_token_weight = model_state_dict.pop("cls_token", None)
+            #     # Pop the cls_token weight from the original state_dict and store it
+            #     cls_token_weight = model_state_dict.pop("cls_token", None)
 
-                # Rename the keys in the new state dict for patch_embeddings
-                new_state_dict = {}
-                for key, value in loaded_state_dict.items():
-                    if "patch_embedding.patch_embeddings.weight" in key:
-                        # Rename patch_embeddings weights with correct indexing (e.g., 1 -> 0)
-                        new_key = key.replace("patch_embedding.patch_embeddings.weight", "patch_embedding.patch_embeddings.1.weight")
-                        new_state_dict[new_key] = value
-                    elif "patch_embedding.patch_embeddings.bias" in key:
-                        # Rename patch_embeddings biases with correct indexing (e.g., 1 -> 0)
-                        new_key = key.replace("patch_embedding.patch_embeddings.bias", "patch_embedding.patch_embeddings.1.bias")
-                        new_state_dict[new_key] = value
-                    else:
-                        # If it's not a patch_embedding, just retain the original key
-                        new_state_dict[key] = value
+            #     # Rename the keys in the new state dict for patch_embeddings
+            #     new_state_dict = {}
+            #     for key, value in loaded_state_dict.items():
+            #         if "patch_embedding.patch_embeddings.weight" in key:
+            #             # Rename patch_embeddings weights with correct indexing (e.g., 1 -> 0)
+            #             new_key = key.replace("patch_embedding.patch_embeddings.weight", "patch_embedding.patch_embeddings.1.weight")
+            #             new_state_dict[new_key] = value
+            #         elif "patch_embedding.patch_embeddings.bias" in key:
+            #             # Rename patch_embeddings biases with correct indexing (e.g., 1 -> 0)
+            #             new_key = key.replace("patch_embedding.patch_embeddings.bias", "patch_embedding.patch_embeddings.1.bias")
+            #             new_state_dict[new_key] = value
+            #         else:
+            #             # If it's not a patch_embedding, just retain the original key
+            #             new_state_dict[key] = value
 
-                # If cls_token was popped, add it to the new state_dict
-                if cls_token_weight is not None:
-                    new_state_dict["cls_token"] = cls_token_weight
+            #     # If cls_token was popped, add it to the new state_dict
+            #     if cls_token_weight is not None:
+            #         new_state_dict["cls_token"] = cls_token_weight
 
-                # Load the updated state dict into your model
-                self.vision_tower = build_vision_tower(self.config)
-                # for ((k1, v1), (k2, v2)) in zip(self.vision_tower.vision_tower.state_dict().items(), loaded_state_dict.items()):
-                #     print(f"{k1}: {v1.shape}")
-                #     print(f"{k2}: {v2.shape}")
-                self.vision_tower.vision_tower.load_state_dict(loaded_state_dict, strict=False)
-            else:
-                # Load the vision model weights
-                vision_model_weights = torch.load(model_args.pretrain_vision_model, map_location='cpu')
-                self.vision_tower.vision_tower.load_state_dict(vision_model_weights)
+            #     # Load the updated state dict into your model
+            #     self.vision_tower = build_vision_tower(self.config)
+            #     # for ((k1, v1), (k2, v2)) in zip(self.vision_tower.vision_tower.state_dict().items(), loaded_state_dict.items()):
+            #     #     print(f"{k1}: {v1.shape}")
+            #     #     print(f"{k2}: {v2.shape}")
+            #     self.vision_tower.vision_tower.load_state_dict(loaded_state_dict, strict=False)
+            # else:
 
         self.config.mm_hidden_size = self.vision_tower.hidden_size
         # print("Hidden size", self.vision_tower.hidden_size)
 
         # mm_projector
-        # if getattr(self, 'mm_projector', None) is None:
-        print("building projector")
         self.mm_projector = build_mm_projector(self.config)
 
         if model_args.pretrain_mm_mlp_adapter is not None:
@@ -165,35 +169,23 @@ class LamedMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, images, contours):
-        image_features = self.get_model().get_vision_tower()(images, contours)
+    def encode_images(self, pets, contours, cts=None):
+        image_features = self.get_model().get_vision_tower()(pets, contours, cts)
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
     def prepare_inputs_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
-        images, contours,
+        pets, contours, cts,
     ):
         vision_tower = self.get_vision_tower()
-        if vision_tower is None or images is None or input_ids.shape[1] == 1:
+        if vision_tower is None or pets is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
         else:
-            image_features = self.encode_images(images, contours)
-            # print("Image feature shape", image_features)
-            # contour_features = self.encode_images(contours)
+            image_features = self.encode_images(pets, contours, cts)
             inputs_embeds = self.get_model().embed_tokens(input_ids)
-            # print("Embedding shape:", inputs_embeds)
-            # print("inputs_embeds shape", inputs_embeds.shape)
-            # print("image features shape", image_features.shape)
-            # print("contour shape", contour_features.shape)
-            # print("combined offset", (image_features.shape[1] + contour_features.shape[1] + 1))
-            # inputs_embeds = torch.cat(
-                # (inputs_embeds[:, :1, :], image_features, contour_features, inputs_embeds[:, (image_features.shape[1] + contour_features.shape[1] + 1):, :]), dim=1)
             inputs_embeds = torch.cat(
                 (inputs_embeds[:, :1, :], image_features, inputs_embeds[:, (image_features.shape[1] + 1):, :]), dim=1)
-            # print("final embeds shape", inputs_embeds.shape)
-            # print("final embeds of both imagesshape", inputs_embeds_two.shape)
-            # print("final mask shape", attention_mask.shape)
         return None, position_ids, attention_mask, past_key_values, inputs_embeds, labels
 
     def initialize_vision_tokenizer(self, model_args, tokenizer):
