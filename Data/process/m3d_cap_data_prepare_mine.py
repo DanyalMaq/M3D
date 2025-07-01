@@ -27,105 +27,106 @@ transforms = mtf.Compose([
                 mode=['trilinear', 'trilinear', 'nearest'])
 ])
 
-def crop_pet_around_lesion(pet_image: np.ndarray, mask_image: np.ndarray, margin: int = 60, clip_val_min: int = 0, clip_val_max: int = 12):
+def crop_image_around_lesion(
+    image: np.ndarray,
+    mask_image: np.ndarray,
+    margin: int = 60,
+    clip_val_min: float = 0,
+    clip_val_max: float = 12,
+    normalize: bool = True
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    Crops the PET scan and segmentation mask around the lesion along the z-axis.
+    Crops the Medical scan and segmentation mask around the lesion along the z-axis.
 
     Parameters:
-    - pet_image (np.ndarray): PET scan of shape (1, 350, 200, 200)
-    - mask_image (np.ndarray): Segmentation mask of shape (1, 350, 200, 200)
+    - image (np.ndarray): Medical scan of shape (1, Z, Y, X)
+    - mask_image (np.ndarray): Segmentation mask of shape (1, Z, Y, X)
     - margin (int): Number of slices to include above and below the lesion
+    - clip_val_min (float): Minimum PET value for clipping
+    - clip_val_max (float): Maximum PET value for clipping
+    - normalize (bool): Whether to normalize PET to [0, 1] after clipping
 
     Returns:
-    - cropped_pet (np.ndarray): Cropped PET scan
-    - cropped_mask (np.ndarray): Cropped segmentation mask
+    - cropped_pet (np.ndarray): Cropped and normalized PET scan
+    - cropped_mask (np.ndarray): Cropped mask
     """
-    assert pet_image.shape == mask_image.shape, "PET and mask must have the same shape"
-    assert pet_image.ndim == 4, "Expected input shape (1, z, y, x)"
+    assert image.shape == mask_image.shape, "PET and mask must have the same shape"
+    assert image.ndim == 4, "Expected shape (1, Z, Y, X)"
 
-    # Remove batch dimension temporarily for easier handling
-    pet = pet_image[0]
-    mask = mask_image[0]
-    clipped = np.clip(pet, clip_val_min, clip_val_max)
-    # Step 2: Normalize to [0, 1]
-    pet = (clipped - clip_val_min) / (clip_val_max - clip_val_min)
+    # Remove batch dimension
+    image, mask = image[0], mask_image[0]
 
-    # Find lesion indices along z-axis
-    lesion_slices = np.any(mask, axis=(1, 2))  # shape: (350,)
-    lesion_indices = np.where(lesion_slices)[0]
+    # Clip and normalize PET
+    if normalize:
+        image = np.clip(image, clip_val_min, clip_val_max)
+        image = (image - clip_val_min) / (clip_val_max - clip_val_min)
 
-    if lesion_indices.size == 0:
+    # Detect lesion bounds
+    lesion_slices = np.any(mask, axis=(1, 2))
+    if not lesion_slices.any():
         raise ValueError("No lesion found in the segmentation mask.")
 
-    lesion_center = int(np.mean(lesion_indices))
-    start_slice = max(0, lesion_center - margin)
-    end_slice = min(pet.shape[0], lesion_center + margin + 1)
+    z_indices = np.where(lesion_slices)[0]
+    center = (z_indices[0] + z_indices[-1]) // 2  # faster than mean for span
+    start = max(0, center - margin)
+    end = min(image.shape[0], center + margin + 1)
 
-    # Crop
-    cropped_pet = pet[start_slice:end_slice, :, :]
-    cropped_mask = mask[start_slice:end_slice, :, :]
+    # Crop and reintroduce batch dimension
+    return (
+        image[np.newaxis, start:end],
+        mask[np.newaxis, start:end]
+    )
 
-    # Add batch dimension back
-    cropped_pet = cropped_pet[np.newaxis, ...]
-    cropped_mask = cropped_mask[np.newaxis, ...]
-
-    return cropped_pet, cropped_mask
 
 def process_item(item, root_dir, output_dir):
     item_path = os.path.join(root_dir, item)
-    if os.path.isdir(item_path):
-        pet_file = os.path.join(item_path, "pet.nii.gz")
-        mask_file = os.path.join(item_path, "mask.nii.gz")
-        ct_file = os.path.join(item_path, "ct.nii.gz")
-        if os.path.exists(pet_file) and os.path.exists(mask_file):
-            output_item_dir = os.path.join(output_dir, item)
-            os.makedirs(output_item_dir, exist_ok=True)
-            dir = os.path.join(output_item_dir, "image.npy")
-            pet_image = nib.load(pet_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
-            mask_image = nib.load(mask_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
-            ct_image = nib.load(ct_file).get_fdata().transpose(2, 1, 0)[np.newaxis, ...]
-            ct_image, _ = crop_pet_around_lesion(ct_image, mask_image, 80, -300, 400)
-            pet_image, mask_image = crop_pet_around_lesion(pet_image, mask_image, 80, 0, 12)
+    if not os.path.isdir(item_path):
+        print("Error with", item_path)
+        return
 
-            pair = {
-                "pet": pet_image,
-                "ct": ct_image,
-                "con": mask_image,
-            }
+    required_files = {
+        "pet": os.path.join(item_path, "pet.nii.gz"),
+        "mask": os.path.join(item_path, "mask.nii.gz"),
+        "ct": os.path.join(item_path, "ct.nii.gz"),
+        "text": os.path.join(item_path, "text.txt"),
+    }
 
-            items = transforms(pair)
-            pet = items['pet']
-            ct = items['ct']
-            contour = items['con']
+    if not all(os.path.exists(path) for path in required_files.values()):
+        print(f"Skipping {item} — missing one or more required files.")
+        return
 
-            np.save(os.path.join(output_item_dir, "pet.npy"), pet)
-            np.save(os.path.join(output_item_dir, "ct.npy"), ct)
-            np.save(os.path.join(output_item_dir, "contour.npy"), contour)
+    # Output directory
+    output_item_dir = os.path.join(output_dir, item)
+    os.makedirs(output_item_dir, exist_ok=True)
 
-            shutil.copyfile(item_path+"/text.txt", output_item_dir+"/text.txt")
-            
-            print(f"Transformed and saved: {item} to {dir}")
-            
-            # affine = np.eye(4)
-            # data = pet_image[0]
-            # nifti_data = data.transpose(1, 2, 0)
-            # nifti_img = nib.Nifti1Image(nifti_data, affine)
-            # nib.save(nifti_img, os.path.join(output_item_dir, "image.nii.gz"))
-            # data = mask_image[0]
-            # nifti_data = data.transpose(1, 2, 0)
-            # nifti_img = nib.Nifti1Image(nifti_data, affine)
-            # nib.save(nifti_img, os.path.join(output_item_dir, "mask.nii.gz"))
+    # Load and transpose all images in one loop
+    image_data = {}
+    for key in ["pet", "mask", "ct"]:
+        nii = nib.load(required_files[key])
+        data = nii.get_fdata().transpose(2, 1, 0)[np.newaxis, ...]  # Shape: (1, z, y, x)
+        image_data[key] = data
 
-            # Uncomment if you want to transform and save a combined text file
-            # json_file_path = item_path+"/text.json"
-            # txt_file_path = output_item_dir+"/text.txt"
-            # with open(json_file_path, 'r') as json_file:
-            #     data = json.load(json_file)
-            # combined_text = '\n'.join(data.values())
-            # with open(txt_file_path, 'w') as txt_file:
-            #     txt_file.write(combined_text)
-        else:
-            print(f"Missing pet.nii.gz or mask.nii.gz in: {item}")
+    # Crop CT and PET/mask around lesion
+    ct_cropped, _ = crop_image_around_lesion(image_data["ct"], image_data["mask"], 80, -300, 400)
+    pet_cropped, mask_cropped = crop_image_around_lesion(image_data["pet"], image_data["mask"], 80, 0, 12)
+
+    # Apply MONAI transforms
+    transformed = transforms({
+        "pet": pet_cropped,
+        "ct": ct_cropped,
+        "con": mask_cropped
+    })
+
+    # Save processed outputs
+    np.save(os.path.join(output_item_dir, "pet.npy"), transformed["pet"])
+    np.save(os.path.join(output_item_dir, "ct.npy"), transformed["ct"])
+    np.save(os.path.join(output_item_dir, "contour.npy"), transformed["con"])
+
+    # Copy text file
+    shutil.copy(required_files["text"], os.path.join(output_item_dir, "text.txt"))
+
+    print(f"✅ Processed and saved: {item}")
+
 
 def create_dataset_parallel(root_dir, output_dir):
     with concurrent.futures.ThreadPoolExecutor() as executor:
