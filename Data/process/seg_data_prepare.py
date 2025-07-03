@@ -15,8 +15,8 @@ from utils import crop_image_around_lesion
 
 transforms = mtf.Compose([
     # mtf.SpatialCropd(keys=["image", "con"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
-    mtf.CropForegroundd(keys=["pet", "ct", "mask"], source_key="pet"),
-    mtf.Resized(keys=["pet", "ct", "mask"], spatial_size=[32,256,256],
+    mtf.CropForegroundd(keys=["pet", "ct", "seg"], source_key="pet"),
+    mtf.Resized(keys=["pet", "ct", "seg"], spatial_size=[32,256,256],
                 mode=['trilinear', 'trilinear', 'nearest'])
 ])
 
@@ -39,17 +39,18 @@ def extract_and_save_labels(mask_path, output_folder):
         label_nii = nib.Nifti1Image(binary.transpose(2, 1, 0), affine=mask_nii.affine)
         nib.save(label_nii, os.path.join(output_folder, f"{int(label)}.nii.gz"))
 
-def separate_segmentations(patient_dir):
+def separate_segmentations(patient_dir, output_dir):
     """
     Processes a single patient directory to extract label masks.
     """
-    mask_path = os.path.join(patient_dir, "mask.nii.gz")
-    if os.path.exists(mask_path):
-        segmentations_dir = os.path.join(patient_dir, "segmentations")
-        extract_and_save_labels(mask_path, segmentations_dir)
-        return f"✅ Processed: {os.path.basename(patient_dir)}"
+    seg_path = os.path.join(patient_dir, "seg.nii.gz")
+    print(seg_path)
+    if os.path.exists(seg_path):
+        segmentations_dir = os.path.join(output_dir, "segmentations")
+        extract_and_save_labels(seg_path, segmentations_dir)
+        print(f"✅ Processed: {os.path.basename(patient_dir)}")
     else:
-        return f"⛔ Skipped: {os.path.basename(patient_dir)} (missing mask.nii.gz)"
+        print(f"⛔ Skipped: {os.path.basename(patient_dir)} (missing mask.nii.gz)")
     
 def process_item(item, root_dir, output_dir):
     """
@@ -58,7 +59,12 @@ def process_item(item, root_dir, output_dir):
         root_dir (str): Root directory containing all patient subdirectories.
         output_dir (str): Directory where processed outputs will be saved.
     """
-    item_path = os.path.join(root_dir, item) # Got a patient folder
+    # Got a patient folder
+    item_path = os.path.join(root_dir, item) 
+    # Output directory
+    output_item_dir = os.path.join(output_dir, item)
+    os.makedirs(output_item_dir, exist_ok=True)
+    # separate_segmentations(item_path, item_path)
 
     # Exit if not a dir
     if not os.path.isdir(item_path):
@@ -78,10 +84,6 @@ def process_item(item, root_dir, output_dir):
         print(f"Skipping {item} — missing one or more required files.")
         return
 
-    # Output directory
-    output_item_dir = os.path.join(output_dir, item)
-    os.makedirs(output_item_dir, exist_ok=True)
-
     image_data = {}
     for key in ["pet", "ct"]:
         nii = nib.load(required_files[key])
@@ -89,9 +91,10 @@ def process_item(item, root_dir, output_dir):
         image_data[key] = data
 
     # Load and transpose all images in one loop
+    # print(os.listdir(required_folders['seg']))
     for seg in os.listdir(required_folders['seg']):
+        # print(seg)
         number = int(seg.split('.')[0])
-        print(number)
         seg_path = os.path.join(required_folders['seg'], seg)
         nii = nib.load(seg_path)
         data = nii.get_fdata().transpose(2, 1, 0)[np.newaxis, ...]  # Shape: (1, z, y, x)
@@ -107,13 +110,13 @@ def process_item(item, root_dir, output_dir):
             "seg": mask_cropped
         })
 
-        save_dir = os.path.join(output_item_dir, number)
+        save_dir = os.path.join(output_item_dir, str(number))
         os.makedirs(save_dir, exist_ok=True)
 
         # Save processed outputs
         np.save(os.path.join(save_dir, "pet.npy"), transformed["pet"])
         np.save(os.path.join(save_dir, "ct.npy"), transformed["ct"])
-        np.save(os.path.join(save_dir, "seg.npy"), transformed["seg"])
+        np.save(os.path.join(save_dir, f"{number}.npy"), transformed["seg"])
 
     # Figure out text part
     # shutil.copy(required_files["text"], os.path.join(output_item_dir, "text.txt"))
@@ -139,13 +142,25 @@ def separate_segmentations_parallel(root_dir):
     for r in sorted(results):
         print(r)
 
+def create_dataset_parallel(root_dir, output_dir):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Submit each directory processing task
+        futures = [executor.submit(process_item, item, root_dir, output_dir) 
+                   for item in os.listdir(root_dir)]
+        # Wait for all futures to complete
+        for future in concurrent.futures.as_completed(futures):
+            pass  # You can add error handling or other tasks here if needed
+
 if __name__ == "__main__":
     # Change these to point to your actual folders
-    separate_segmentations_parallel("../training/")
-    separate_segmentations_parallel("../testing/")
+    # separate_segmentations_parallel("../patient_data/")
+    # separate_segmentations_parallel("../patient_data/")
 
-    create_dataset_parallel("../training/", "../data/training_npy_ct/")
+    create_dataset_parallel("../patient_data/", "../data/patient_data/")
     print("Transformation complete training.")
 
-    create_dataset_parallel("../testing/", "../data/testing_npy_ct/")
-    print("Transformation complete testing.")
+    # create_dataset_parallel("../training/", "../data/training_npy_ct/")
+    # print("Transformation complete training.")
+
+    # create_dataset_parallel("../testing/", "../data/testing_npy_ct/")
+    # print("Transformation complete testing.")
