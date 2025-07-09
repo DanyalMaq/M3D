@@ -14,7 +14,7 @@ def run_segment_wrapper(args):
     return run_segment(*args)
 
 def segment():
-    BASE_DIR = '/mym3d/Data/training'
+    BASE_DIR = '/mym3d/Data/patient_data'
     all_cases = []
 
     # Gather all ct.nii.gz paths
