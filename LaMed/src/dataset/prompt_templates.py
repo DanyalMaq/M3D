@@ -43,6 +43,24 @@ Caption_templates = [
             "Can you provide a diagnosis based on this image?",
 ]
 
+Seg_template = [
+    "What organ is shown in the masked region?",
+    "Which organ is segmented in this image?",
+    "What structure is highlighted by the mask?",
+    "Identify the organ marked by the mask.",
+    "What anatomical region does the mask correspond to?",
+    "Which body part is covered by the highlighted area?",
+    "What is the masked area indicating?",
+    "What organ lies within the masked region?",
+    "Can you name the organ selected by the segmentation mask?",
+    "What organ is enclosed by the mask?",
+    "Please identify the organ highlighted in the image.",
+    "What does the mask represent in this scan?",
+    "Tell me which organ is being segmented.",
+    "Which anatomical structure has been masked?",
+    "What region of the body does the mask refer to?"
+]
+
 
 PosREC_templates = {
 "cls_questions": [

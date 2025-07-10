@@ -6,7 +6,7 @@ import torch
 import transformers
 from transformers import AutoTokenizer, LlamaForCausalLM
 from dataclasses import dataclass, field
-from LaMed.src.dataset.multi_dataset import UniDatasets, CapDataset, TextDatasets, VQADataset, MyCapDataset
+from LaMed.src.dataset.multi_dataset import UniDatasets, MyCapDataset
 from LaMed.src.model.language_model import LamedLlamaForCausalLM, LamedPhi3ForCausalLM
 from LaMed.src.train.lamed_trainer import LaMedTrainer
 import warnings
@@ -44,7 +44,7 @@ class ModelArguments:
     vision_select_feature: Optional[str] = field(default="patch")
     pretrain_vision_model: str = field(default=None, metadata={"help": "Path to pretrained model for ViT."})
     freeze_vision_tower: bool = field(default=False)
-    use_contour: bool = field(default=False)
+    use_mask: bool = field(default=False)
     qkv_bias: bool = field(default=False)
     classification: bool = field(default=True)
     pos_embed: str = field(default='perceptron')
@@ -65,6 +65,10 @@ class ModelArguments:
 
 @dataclass
 class DataArguments:
+    modality_keys: Optional[List[str]] = field(
+        default_factory=lambda: ["pet", "ct", "mask"],
+        metadata={"help": "Determines the types of files needed"}
+    )
     data_root: str = field(default="/mym3d/Data/data/", metadata={"help": "Root directory for all data."})
 
     # caption data
@@ -228,57 +232,41 @@ def find_all_linear_names(model):
 
 @dataclass
 class DataCollator:
-    def __init__(self, seg_enable):
-        self.seg_enable = seg_enable
+    def __init__(self, args):
+        self.seg_enable = args.seg_enable
+        self.modality_keys = args.modality_keys  # e.g., ["pet", "ct", "mask"]
+
     def __call__(self, batch: list) -> dict:
+        batch_dict = {}
+
+        # Handle dynamic modalities
+        for key in self.modality_keys:
+            tensors = [b[key].unsqueeze(0) for b in batch]
+            batch_dict[f"{key}s"] = torch.cat(tensors, dim=0)
+
+        # Token-related fields
+        input_ids = torch.cat([b["input_id"].unsqueeze(0) for b in batch], dim=0)
+        labels = torch.cat([b["label"].unsqueeze(0) for b in batch], dim=0)
+        attention_mask = torch.cat([b["attention_mask"].unsqueeze(0) for b in batch], dim=0)
+
+        batch_dict.update({
+            "input_ids": input_ids,
+            "labels": labels,
+            "attention_mask": attention_mask,
+        })
+
+        # Handle segmentation maps if enabled
         if self.seg_enable:
-            pets, contours, cts, input_ids, labels, attention_mask, segs = tuple(
-                [b[key] for b in batch] for key in ('pet', 'contour', 'ct', 'input_id', 'label', 'attention_mask', 'seg'))
-
-            pets = torch.cat([_.unsqueeze(0) for _ in pets], dim=0)
-            contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
-            cts = torch.cat([_.unsqueeze(0) for _ in cts], dim=0)
-            input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
-            labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
-            attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
-
-            for i, seg in enumerate(segs):
+            segs = []
+            for b in batch:
+                seg = b["seg"]
                 if seg.sum() == 0:
-                    segs[i] = torch.zeros((1, 1, 32, 256, 256))
+                    segs.append(torch.zeros((1, 1, 32, 256, 256)))
                 else:
-                    segs[i] = seg.unsqueeze(0)
-            segs = torch.cat(segs, dim=0)
+                    segs.append(seg.unsqueeze(0))
+            batch_dict["segs"] = torch.cat(segs, dim=0)
 
-            return_dict = dict(
-                pets=pets,
-                contours=contours,
-                cts=cts,
-                input_ids=input_ids,
-                labels=labels,
-                attention_mask=attention_mask,
-                segs=segs,
-            )
-        else:
-            pets, contours, cts, input_ids, labels, attention_mask, segs = tuple(
-                [b[key] for b in batch] for key in ('pet', 'contour', 'ct', 'input_id', 'label', 'attention_mask', 'seg'))
-
-            pets = torch.cat([_.unsqueeze(0) for _ in pets], dim=0)
-            contours = torch.cat([_.unsqueeze(0) for _ in contours], dim=0)
-            cts = torch.cat([_.unsqueeze(0) for _ in cts], dim=0)
-            input_ids = torch.cat([_.unsqueeze(0) for _ in input_ids], dim=0)
-            labels = torch.cat([_.unsqueeze(0) for _ in labels], dim=0)
-            attention_mask = torch.cat([_.unsqueeze(0) for _ in attention_mask], dim=0)
-
-            return_dict = dict(
-                pets=pets,
-                contours=contours,
-                cts=cts,
-                input_ids=input_ids,
-                labels=labels,
-                attention_mask=attention_mask,
-            )
-
-        return return_dict
+        return batch_dict
 
 
 def main():
@@ -366,9 +354,12 @@ def main():
         for p in model.get_model().mm_projector.parameters():
             p.requires_grad = True
     if model_args.tune_mask_channel:
-        print(model)
-        exit()
-        model.requires_grad_(False)
+        model.requires_grad_(False)  # freeze everything first
+
+        # Unfreeze the mask channel patch embedding
+        for name, param in model.get_model().patch_embedding_mask.named_parameters():
+            param.requires_grad = True
+        print("✅ Unfroze patch_embedding_mask parameters")
 
     model_args.num_new_tokens = 4
     model.initialize_vision_tokenizer(model_args, tokenizer)
@@ -397,8 +388,6 @@ def main():
             ):
                 p.requires_grad = True
 
-        # model.print_trainable_parameters()
-
     # model.print_trainable_parameters()
     
 
@@ -414,10 +403,20 @@ def main():
     # if model_args.tune_mm_mlp_adapter:
     #     train_dataset = TextDatasets(data_args, tokenizer, mode='train')
     # else:
-    train_dataset = UniDatasets(data_args, tokenizer, mode='train')
+    full_dataset = UniDatasets(data_args, tokenizer, mode='train')
 
-    eval_dataset = MyCapDataset(data_args, tokenizer, mode='validation')
-    data_collator = DataCollator(data_args.seg_enable)
+    # eval_dataset = MyCapDataset(data_args, tokenizer, mode='validation')
+    data_collator = DataCollator(data_args)
+
+    from torch.utils.data import random_split
+    total_len = len(full_dataset)
+    train_len = int(0.8 * total_len)
+    eval_len = total_len - train_len
+    train_dataset, eval_dataset = random_split(
+        full_dataset,
+        [train_len, eval_len],
+        generator=torch.Generator().manual_seed(42)
+    )
 
     rank0_print("="*20 + " Training " + "="*20)
     trainer = LaMedTrainer(
@@ -430,7 +429,7 @@ def main():
                             preprocess_logits_for_metrics=preprocess_logits_for_metrics
                       )
 
-    trainer.train()
+    trainer.train(resume_from_checkpoint=True)
     trainer.save_state()
     model.config.use_cache = True
 

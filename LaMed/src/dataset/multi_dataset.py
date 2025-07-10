@@ -2,7 +2,7 @@ import random
 import os
 import numpy as np
 import torch
-from torch.utils.data import Dataset, maskcatDataset
+from torch.utils.data import Dataset, ConcatDataset
 
 import json
 import pandas as pd
@@ -13,7 +13,7 @@ from monai.data import set_track_meta
 
 from ..utils.utils import mask2box
 from .dataset_info import dataset_info
-from .prompt_templates import Caption_templates, PosREC_templates, PosREG_templates, Seg_templates
+from .prompt_templates import Caption_templates, PosREC_templates, PosREG_templates, Seg_template
 from .term_dictionary import term_dict
 
 
@@ -28,19 +28,19 @@ class MyCapDataset(Dataset):
         with open(args.cap_data_path, 'r') as f:
             self.data_list = json.load(f)[mode]
 
-        self.caption_prompts = Caption_templates
+        self.caption_prompts = Seg_template
 
         set_track_meta(False)
         self.transform = self._build_transform()
 
     def _build_transform(self):
         base = [
-            mtf.ToTensord(keys=self.args.keys, dtype=torch.float)
+            mtf.ToTensord(keys=self.args.modality_keys, dtype=torch.float)
         ]
         if self.mode == "train":
             aug = [
-                mtf.RandScaleIntensityd(keys=self.args.keys, factors=0.1, prob=0.2),
-                mtf.RandShiftIntensityd(keys=self.args.keys, offsets=0.1, prob=0.2)
+                mtf.RandScaleIntensityd(keys=self.args.modality_keys, factors=0.1, prob=0.2),
+                mtf.RandShiftIntensityd(keys=self.args.modality_keys, offsets=0.1, prob=0.2)
             ]
             return mtf.Compose(aug + base)
         return mtf.Compose(base)
@@ -55,7 +55,7 @@ class MyCapDataset(Dataset):
 
                 # Load image data
                 item = {}
-                for key in self.args.keys:
+                for key in self.args.modality_keys:
                     path = os.path.join(self.data_root, data[key])
                     item[key] = np.load(path)
 
@@ -103,7 +103,7 @@ class MyCapDataset(Dataset):
                     label[valid_len] = self.tokenizer.eos_token_id
 
                 ret = {
-                    **{k: item[k] for k in self.args.keys},
+                    **{k: item[k] for k in self.args.modality_keys},
                     'input_id': input_ids,
                     'label': label,
                     'attention_mask': attn_mask,
@@ -113,7 +113,7 @@ class MyCapDataset(Dataset):
                 }
 
                 if self.args.seg_enable:
-                    ret['seg'] = torch.zeros_like(item[self.args.keys[0]])
+                    ret['seg'] = torch.zeros_like(item[self.args.modality_keys[0]])
 
                 return ret
 
@@ -246,7 +246,7 @@ class TextDatasets(Dataset):
             VQADataset(args, tokenizer, close_ended=True, mode=mode),
             VQADataset(args, tokenizer, close_ended=False, mode=mode),
         ]
-        self.dataset = maskcatDataset(self.ds_list)
+        self.dataset = ConcatDataset(self.ds_list)
 
     def __len__(self):
         return len(self.dataset)
@@ -262,7 +262,7 @@ class UniDatasets(Dataset):
             MyCapDataset(args, tokenizer, mode),
             # RefSegDataset(args, tokenizer, mode)
         ]
-        self.dataset = maskcatDataset(self.ds_list)
+        self.dataset = ConcatDataset(self.ds_list)
 
     def __len__(self):
         return len(self.dataset)

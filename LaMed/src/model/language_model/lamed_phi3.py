@@ -43,7 +43,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def forward(
             self,
             pets: Optional[torch.FloatTensor] = None,
-            contours: Optional[torch.FloatTensor] = None,
+            masks: Optional[torch.FloatTensor] = None,
             cts: Optional[torch.FloatTensor] = None,
             input_ids: torch.LongTensor = None,
             labels: Optional[torch.LongTensor] = None,
@@ -77,7 +77,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 past_key_values,
                 labels,
                 pets,
-                contours,
+                masks,
                 cts,
             )
 
@@ -154,7 +154,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def generate(
         self,
         pets: Optional[torch.Tensor] = None,
-        contours: Optional[torch.Tensor] = None,
+        masks: Optional[torch.Tensor] = None,
         cts: Optional[torch.Tensor] = None,
         inputs: Optional[torch.Tensor] = None,
         seg_enable: bool = False,
@@ -182,7 +182,7 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 None,
                 None,
                 pets,
-                contours,
+                masks,
                 cts,
             )
             print(inputs)
@@ -237,14 +237,14 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None,
                                       inputs_embeds=None, **kwargs):
         pets = kwargs.pop("pes", None)
-        contours = kwargs.pop("contours", None)
+        masks = kwargs.pop("masks", None)
         cts = kwargs.pop("cts", None)
         inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
         )
         if pets is not None:
             inputs['pets'] = pets
-            inputs['contours'] = contours
+            inputs['masks'] = masks
             inputs['cts'] = cts
         return inputs
 

@@ -59,12 +59,12 @@ class LamedMetaModel:
         self.config.use_ct = getattr(model_args, 'use_ct', False)
         print("CT value is", self.config.use_ct)
              
-        use_contour = getattr(model_args, 'use_contour', None)
-        if use_contour is not None:
-            self.config.use_contour = use_contour
+        use_mask = getattr(model_args, 'use_mask', None)
+        if use_mask is not None:
+            self.config.use_mask = use_mask
         else:
-            print("Use contour value is None in lamed_arch, setting it to False")
-            self.config.use_contour = False
+            print("Use mask value is None in lamed_arch, setting it to False")
+            self.config.use_mask = False
 
 
         # vision tower
@@ -169,20 +169,20 @@ class LamedMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, pets, contours, cts=None):
-        image_features = self.get_model().get_vision_tower()(pets, contours, cts)
+    def encode_images(self, pets, masks, cts=None):
+        image_features = self.get_model().get_vision_tower()(pets, masks, cts)
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
     def prepare_inputs_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
-        pets, contours, cts,
+        pets, masks, cts,
     ):
         vision_tower = self.get_vision_tower()
         if vision_tower is None or pets is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
         else:
-            image_features = self.encode_images(pets, contours, cts)
+            image_features = self.encode_images(pets, masks, cts)
             inputs_embeds = self.get_model().embed_tokens(input_ids)
             inputs_embeds = torch.cat(
                 (inputs_embeds[:, :1, :], image_features, inputs_embeds[:, (image_features.shape[1] + 1):, :]), dim=1)

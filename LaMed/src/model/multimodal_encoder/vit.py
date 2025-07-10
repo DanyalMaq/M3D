@@ -49,7 +49,7 @@ class ViT(nn.Module):
         post_activation="Tanh",
         qkv_bias: bool = False,
         save_attn: bool = False,
-        use_contour: bool = False,
+        use_mask: bool = False,
     ) -> None:
         """
         Args:
@@ -94,7 +94,7 @@ class ViT(nn.Module):
             raise ValueError("hidden_size should be divisible by num_heads.")
         self.hidden_size = hidden_size
         self.classification = classification
-        self.use_contour = use_contour
+        self.use_mask = use_mask
         self.qkv_bias = qkv_bias
         self.patch_embedding = PatchEmbeddingBlock(
             in_channels=in_channels,
@@ -106,8 +106,8 @@ class ViT(nn.Module):
             dropout_rate=dropout_rate,
             spatial_dims=spatial_dims,
         )
-        if self.use_contour:
-            self.patch_embedding_contour = PatchEmbeddingBlock(
+        if self.use_mask:
+            self.patch_embedding_mask = PatchEmbeddingBlock(
                 in_channels=1,
                 img_size=img_size,
                 patch_size=patch_size,
@@ -117,6 +117,9 @@ class ViT(nn.Module):
                 dropout_rate=dropout_rate,
                 spatial_dims=spatial_dims,
             )
+            for name, param in self.patch_embedding_mask.named_parameters():
+                if "weight" in name or "bias" in name:
+                    torch.nn.init.constant_(param, 0.0)
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(hidden_size, mlp_dim, num_heads, dropout_rate, self.qkv_bias, save_attn)
@@ -131,15 +134,15 @@ class ViT(nn.Module):
             # else:
             #     self.classification_head = nn.Linear(hidden_size, num_classes)  # type: ignore
 
-    def forward(self, x, contour=None):
+    def forward(self, x, mask=None):
         # print(x.shape)
-        if self.use_contour:
-            print("Using contour")
-            x = self.patch_embedding(x) + self.patch_embedding_contour(contour)
+        if self.use_mask:
+            print("Using mask")
+            x = self.patch_embedding(x) + self.patch_embedding_mask(mask)
         else:
             x = self.patch_embedding(x)
         # print(x.shape)
-        # print("Contour included")
+        # print("mask included")
         # print("x shape", x.shape)
         if hasattr(self, "cls_token"):
             cls_token = self.cls_token.expand(x.shape[0], -1, -1)
@@ -163,7 +166,7 @@ class ViT3DTower(nn.Module):
         self.select_feature = config.vision_select_feature
         self.classification = getattr(config, 'classification', True)
         self.pos_embed = getattr(config, 'pos_embed', 'perceptron')
-        self.use_contour = getattr(config, 'use_contour', False)
+        self.use_mask = getattr(config, 'use_mask', False)
         self.qkv_bias = getattr(config, 'qkv_bias', False)
         self.use_ct = getattr(config, 'use_ct', False)
 
@@ -174,7 +177,7 @@ class ViT3DTower(nn.Module):
             pos_embed=self.pos_embed,
             spatial_dims=len(self.config.patch_size),
             classification=self.classification,
-            use_contour = self.use_contour,
+            use_mask = self.use_mask,
             qkv_bias = self.qkv_bias
         )
         if self.use_ct:
@@ -185,12 +188,12 @@ class ViT3DTower(nn.Module):
                 pos_embed=self.pos_embed,
                 spatial_dims=len(self.config.patch_size),
                 classification=False,
-                use_contour = False,
+                use_mask = False,
                 qkv_bias = self.qkv_bias
             )
 
-    def forward(self, pet, contours, ct=None):
-        last_feature, hidden_states = self.vision_tower(pet, contours)
+    def forward(self, pet, masks, ct=None):
+        last_feature, hidden_states = self.vision_tower(pet, masks)
         # print("Last_feature shape:", last_feature.shape)
         if self.select_layer == -1:
             image_features = last_feature
@@ -233,12 +236,12 @@ class ViTMerlin3DTower(nn.Module):
         self.config = config
         self.select_layer = config.vision_select_layer
         self.select_feature = config.vision_select_feature
-        use_contour = getattr(config, 'use_contour', None)
-        if use_contour is not None:
-            self.use_contour = use_contour
+        use_mask = getattr(config, 'use_mask', None)
+        if use_mask is not None:
+            self.use_mask = use_mask
         else:
-            print("Use contour value is None in vit, setting it to False")
-            self.use_contour = False
+            print("Use mask value is None in vit, setting it to False")
+            self.use_mask = False
 
         self.vision_tower = ViT(
             in_channels=self.config.image_channel,
@@ -247,16 +250,16 @@ class ViTMerlin3DTower(nn.Module):
             pos_embed="perceptron",
             spatial_dims=len(self.config.patch_size),
             classification=True,
-            use_contour=self.use_contour
+            use_mask=self.use_mask
         )
 
         self.merlin = Merlin()
 
         self.cross_attention = CrossAttentionBlock(embed_dim=768, num_heads=8)
 
-    def forward(self, images, contours):
+    def forward(self, images, masks):
         # Separately encode images
-        last_feature, hidden_states = self.vision_tower(images, contours) # (bsz, 2048, 768)
+        last_feature, hidden_states = self.vision_tower(images, masks) # (bsz, 2048, 768)
         merlin_features = self.merlin(images) # (bsz, 2048), mayb project this to the same embedding dim
 
         # Determine the layer of the vision transformer to extract features from (Have fusion here later as well)
