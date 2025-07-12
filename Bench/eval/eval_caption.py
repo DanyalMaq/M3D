@@ -52,6 +52,13 @@ def parse_args(args=None):
     parser.add_argument('--proj_out_num', type=int, default=256)
     parser.add_argument('--seg_enable', type=bool, default=True)
 
+    parser.add_argument(
+        '--modality_keys',
+        nargs='+',
+        default=["pet", "ct", "mask"],
+        help="Determines the types of files needed"
+    )
+
     return parser.parse_args(args)
 
 def postprocess_text(preds, labels):
@@ -79,7 +86,16 @@ def main():
     )
     model = model.to(device=device)
 
-    test_dataset = MyCapDataset(args, tokenizer=tokenizer, mode='validation') # test1k
+    test_dataset = MyCapDataset(args, tokenizer=tokenizer, mode='val') # test1k
+    # from torch.utils.data import random_split
+    # total_len = len(full_dataset)
+    # train_len = int(0.8 * total_len)
+    # eval_len = total_len - train_len
+    # train_dataset, test_dataset = random_split(
+    #     full_dataset,
+    #     [train_len, eval_len],
+    #     generator=torch.Generator().manual_seed(42)
+    # )
 
     test_dataloader = DataLoader(
             test_dataset,
@@ -103,11 +119,11 @@ def main():
 
             input_id = tokenizer(question, return_tensors="pt")['input_ids'].to(device=device)
             pet = sample["pet"].to(device=device)
-            contour = sample["contour"].to(device=device)
+            mask = sample["mask"].to(device=device)
             ct = sample["ct"].to(device=device)
 
 
-            generation = model.generate(pet, contour, ct, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
+            generation = model.generate(pet, mask, ct, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
             generated_texts = tokenizer.batch_decode(generation, skip_special_tokens=True)
             # print(generated_texts[0])
 

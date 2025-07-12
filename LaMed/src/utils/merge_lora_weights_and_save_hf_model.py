@@ -34,7 +34,7 @@ class ModelArguments:
     vision_select_feature: Optional[str] = field(default="patch")
     pretrain_vision_model: str = field(default=None, metadata={"help": "Path to pretrained model for ViT."})
     freeze_vision_tower: bool = field(default=False)
-    use_contour: bool = field(default=False)
+    use_mask: bool = field(default=False)
     qkv_bias: bool = field(default=False)
     classification: bool = field(default=True)
     pos_embed: str = field(default='perceptron')

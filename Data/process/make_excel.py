@@ -33,11 +33,11 @@ def collect_entries_from_dir(root_dir):
 
 def create_json_from_directory(train_dir, output_file="../output.json"):
     data = {
-        "train": collect_entries_from_dir(train_dir)
+        "val": collect_entries_from_dir(train_dir)
     }
 
     with open(output_file, "w") as f:
         json.dump(data, f, indent=4)
 
 # Run the function
-create_json_from_directory('../data/testing_npy_ct')
+create_json_from_directory('../data/validation_npy_ct')

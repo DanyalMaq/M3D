@@ -171,6 +171,6 @@ if __name__ == "__main__":
     # create_dataset_parallel("../training/", "../data/training_npy_ct/")
     # print("Transformation complete training.")
 
-    # separate_segmentations_parallel("../testing/")
-    create_dataset_parallel("../testing/", "../data/testing_npy_ct/", max_items=1000)
-    print("Transformation complete testing.")
+    separate_segmentations_parallel("../validation/")
+    create_dataset_parallel("../validation/", "../data/validation_npy_ct/", max_items=50)
+    print("Transformation complete validation.")

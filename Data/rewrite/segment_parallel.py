@@ -2,7 +2,7 @@ import os
 import argparse
 from concurrent.futures import ProcessPoolExecutor
 from totalsegmentator.python_api import totalsegmentator
-
+# LEt it run first and fail after a bit so that it can download all the segmentation models
 def run_segment(ct_path, seg_path, device):
     print(f"Running on {device}: {ct_path}")
     try:
@@ -14,7 +14,7 @@ def run_segment_wrapper(args):
     return run_segment(*args)
 
 def segment():
-    BASE_DIR = '/mym3d/Data/patient_data'
+    BASE_DIR = '/mym3d/Data/validation'
     all_cases = []
 
     # Gather all ct.nii.gz paths
@@ -25,7 +25,7 @@ def segment():
             all_cases.append((ct_path, seg_path))
 
     # Run in batches of 18
-    batches = 18
+    batches = 9
     for i in range(0, len(all_cases), batches):
         batch = all_cases[i:i+batches]
         tasks = []

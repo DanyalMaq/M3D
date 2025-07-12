@@ -1,0 +1,116 @@
+,precision,recall,f1-score,support,accuracy
+trachea,0.98,1.0,0.99,50.0,1.0
+aorta,1.0,1.0,1.0,50.0,1.0
+stomach,1.0,1.0,1.0,50.0,1.0
+costal cartilages,1.0,1.0,1.0,50.0,1.0
+esophagus,1.0,1.0,1.0,50.0,1.0
+heart,1.0,1.0,1.0,50.0,1.0
+inferior vena cava,1.0,1.0,1.0,50.0,1.0
+right upper lung lobe,1.0,1.0,1.0,50.0,1.0
+sacrum,1.0,1.0,1.0,50.0,1.0
+skull,1.0,1.0,1.0,50.0,1.0
+spinal cord,1.0,1.0,1.0,50.0,1.0
+spleen,0.941,1.0,0.97,48.0,1.0
+sternum,1.0,1.0,1.0,50.0,1.0
+right iliopsoas,1.0,1.0,1.0,50.0,1.0
+right lower lung lobe,0.98,1.0,0.99,50.0,1.0
+right scapula,1.0,1.0,1.0,50.0,1.0
+right subclavian artery,0.962,1.0,0.98,50.0,1.0
+right clavicle,1.0,1.0,1.0,50.0,1.0
+right femur,1.0,1.0,1.0,50.0,1.0
+right gluteus maximus,1.0,1.0,1.0,50.0,1.0
+right gluteus medius,1.0,1.0,1.0,50.0,1.0
+right gluteus minimus,1.0,1.0,1.0,50.0,1.0
+right hip,1.0,1.0,1.0,50.0,1.0
+right humerus,1.0,1.0,1.0,50.0,1.0
+pulmonary vein,0.98,1.0,0.99,50.0,1.0
+right 2nd rib,0.962,1.0,0.98,50.0,1.0
+right 3rd rib,1.0,1.0,1.0,50.0,1.0
+left atrial appendage,1.0,1.0,1.0,50.0,1.0
+left autochthonous back muscle,0.98,1.0,0.99,50.0,1.0
+left clavicle,1.0,1.0,1.0,50.0,1.0
+left femur,1.0,1.0,1.0,50.0,1.0
+left gluteus maximus,1.0,1.0,1.0,50.0,1.0
+left scapula,0.98,1.0,0.99,50.0,1.0
+left upper lung lobe,1.0,1.0,1.0,50.0,1.0
+liver,1.0,1.0,1.0,50.0,1.0
+prostate,0.917,1.0,0.957,33.0,1.0
+left gluteus medius,1.0,1.0,1.0,50.0,1.0
+left gluteus minimus,1.0,1.0,1.0,50.0,1.0
+left hip,0.98,1.0,0.99,50.0,1.0
+left iliac artery,0.909,1.0,0.952,50.0,1.0
+left iliopsoas,1.0,1.0,1.0,50.0,1.0
+brain,1.0,1.0,1.0,50.0,1.0
+left kidney,1.0,0.98,0.99,50.0,0.98
+left humerus,1.0,0.98,0.99,50.0,0.98
+right middle lung lobe,1.0,0.98,0.99,50.0,0.98
+right 12th rib,0.831,0.98,0.899,50.0,0.98
+superior vena cava,1.0,0.98,0.99,50.0,0.98
+right autochthonous back muscle,1.0,0.98,0.99,50.0,0.98
+c2 vertebra,0.942,0.98,0.961,50.0,0.98
+left 4th rib,0.925,0.98,0.951,50.0,0.98
+l4 vertebra,0.923,0.96,0.941,50.0,0.96
+left 3rd rib,0.98,0.96,0.97,50.0,0.96
+colon,0.873,0.96,0.914,50.0,0.96
+right 4th rib,0.98,0.96,0.97,50.0,0.96
+right 1st rib,1.0,0.96,0.98,50.0,0.96
+left lower lung lobe,1.0,0.96,0.98,50.0,0.96
+left adrenal gland,0.842,0.96,0.897,50.0,0.96
+left 12th rib,0.978,0.957,0.968,47.0,0.957
+urinary bladder,1.0,0.94,0.969,50.0,0.94
+duodenum,0.922,0.94,0.931,50.0,0.94
+s1 vertebra,1.0,0.94,0.969,50.0,0.94
+right common carotid artery,1.0,0.94,0.969,50.0,0.94
+l5 vertebra,0.94,0.94,0.94,50.0,0.94
+left common carotid artery,0.839,0.94,0.887,50.0,0.94
+right adrenal gland,1.0,0.94,0.969,50.0,0.94
+right 11th rib,0.887,0.94,0.913,50.0,0.94
+t3 vertebra,0.904,0.94,0.922,50.0,0.94
+c1 vertebra,1.0,0.94,0.969,50.0,0.94
+c7 vertebra,0.783,0.94,0.855,50.0,0.94
+left 1st rib,0.836,0.92,0.876,50.0,0.92
+thyroid gland,0.92,0.92,0.92,50.0,0.92
+right 5th rib,0.938,0.9,0.918,50.0,0.9
+right brachiocephalic vein,0.833,0.9,0.865,50.0,0.9
+t5 vertebra,0.918,0.9,0.909,50.0,0.9
+t12 vertebra,0.652,0.9,0.756,50.0,0.9
+t8 vertebra,0.9,0.9,0.9,50.0,0.9
+t6 vertebra,0.9,0.9,0.9,50.0,0.9
+left iliac vein,1.0,0.9,0.947,50.0,0.9
+gallbladder,0.946,0.897,0.921,39.0,0.897
+left 2nd rib,0.917,0.88,0.898,50.0,0.88
+right 10th rib,0.772,0.88,0.822,50.0,0.88
+t4 vertebra,0.917,0.88,0.898,50.0,0.88
+c6 vertebra,0.88,0.88,0.88,50.0,0.88
+l1 vertebra,0.746,0.88,0.807,50.0,0.88
+left 11th rib,0.898,0.88,0.889,50.0,0.88
+left 5th rib,0.978,0.88,0.926,50.0,0.88
+left subclavian artery,0.935,0.86,0.896,50.0,0.86
+small bowel,0.977,0.86,0.915,50.0,0.86
+c3 vertebra,0.843,0.86,0.851,50.0,0.86
+t2 vertebra,0.956,0.86,0.905,50.0,0.86
+right 6th rib,0.913,0.84,0.875,50.0,0.84
+c4 vertebra,0.764,0.84,0.8,50.0,0.84
+pancreas,1.0,0.84,0.913,50.0,0.84
+t7 vertebra,0.913,0.84,0.875,50.0,0.84
+left 6th rib,0.872,0.82,0.845,50.0,0.82
+l3 vertebra,0.932,0.82,0.872,50.0,0.82
+portal and splenic veins,0.765,0.812,0.788,48.0,0.812
+left brachiocephalic vein,0.93,0.8,0.86,50.0,0.8
+brachiocephalic trunk,0.784,0.8,0.792,50.0,0.8
+t1 vertebra,0.867,0.78,0.821,50.0,0.78
+c5 vertebra,0.951,0.78,0.857,50.0,0.78
+right kidney,1.0,0.76,0.864,50.0,0.76
+l2 vertebra,0.704,0.76,0.731,50.0,0.76
+left 8th rib,0.633,0.76,0.691,50.0,0.76
+right 7th rib,0.717,0.76,0.738,50.0,0.76
+right iliac artery,0.661,0.74,0.698,50.0,0.74
+left 10th rib,0.706,0.72,0.713,50.0,0.72
+left 9th rib,0.654,0.68,0.667,50.0,0.68
+left 7th rib,0.75,0.66,0.702,50.0,0.66
+right 9th rib,0.727,0.64,0.681,50.0,0.64
+t10 vertebra,0.542,0.64,0.587,50.0,0.64
+right 8th rib,0.64,0.64,0.64,50.0,0.64
+right iliac vein,0.705,0.62,0.66,50.0,0.62
+t9 vertebra,0.757,0.56,0.644,50.0,0.56
+t11 vertebra,0.634,0.52,0.571,50.0,0.52
