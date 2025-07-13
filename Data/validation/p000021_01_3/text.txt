@@ -1,0 +1,1 @@
+For example there is a convex pleural-based lesion on axial slice 98 in the right lung that has an SUV Max of 43.4.
