@@ -1,43 +1,74 @@
 import os
 import json
 
-def collect_entries_from_dir(root_dir):
+def collect_entries_from_dir(root_dir, text_key="struct"):
+    """
+    Collects file paths for pet, ct, mask, optional *_focal versions, and a text file.
+
+    Parameters:
+    - root_dir: str, directory to walk through
+    - text_key: str, "text" or "struct" — determines which .txt file to collect
+
+    Returns:
+    - list of dictionaries with file paths
+    """
     entries = []
 
     for subdir, _, files in os.walk(root_dir):
-        pet_npy_file = None
-        ct_npy_file = None
-        mask_npy_file = None
-        txt_file = None
+        paths = {
+            "pet": None,
+            "ct": None,
+            "mask": None,
+            "pet_focal": None,
+            "ct_focal": None,
+            "mask_focal": None,
+            "text": None,
+        }
 
         for file in files:
-            if file.endswith('.npy'):
-                if file.startswith('pet'):
-                    pet_npy_file = os.path.join(subdir, file)
-                elif file.startswith('ct'):
-                    ct_npy_file = os.path.join(subdir, file)
-                else:
-                    mask_npy_file = os.path.join(subdir, file)
-            elif file.endswith('.txt'):
-                txt_file = os.path.join(subdir, file)
+            full_path = os.path.join(subdir, file)
 
-        if pet_npy_file and ct_npy_file and mask_npy_file and txt_file:
-            entries.append({
-                "pet": pet_npy_file,
-                "ct": ct_npy_file,
-                "mask": mask_npy_file,
-                "text": txt_file
-            })
+            if file.endswith(".npy"):
+                for key in ["pet", "ct", "mask"]:
+                    if file.startswith(f"{key}_focal"):
+                        paths[f"{key}_focal"] = full_path
+                        break
+                    elif file.startswith(key):
+                        paths[key] = full_path
+                        break
+
+            elif file == f"{text_key}.txt":
+                paths["text"] = full_path
+
+        # Require base images and the requested txt file
+        if paths["pet"] and paths["ct"] and paths["mask"] and paths["text"]:
+            entries.append({k: v for k, v in paths.items() if v is not None})
 
     return entries
 
-def create_json_from_directory(train_dir, output_file="../output.json"):
+def create_json_from_directories(input_dirs, output_file="../output.json", text_key="text"):
+    """
+    Creates a JSON from directories containing medical data.
+
+    Parameters:
+    - input_dirs: dict of split names to paths (e.g., {"train": "path", "test": "path"})
+    - output_file: str, path to output JSON
+    - text_key: str, "text" or "struct"
+    """
     data = {
-        "val": collect_entries_from_dir(train_dir)
+        split: collect_entries_from_dir(path, text_key=text_key)
+        for split, path in input_dirs.items()
     }
 
     with open(output_file, "w") as f:
         json.dump(data, f, indent=4)
 
-# Run the function
-create_json_from_directory('../data/validation_npy_ct')
+# Example usage
+create_json_from_directories(
+    {
+        "train": "../data/training_npy_ct",
+        "test": "../data/testing_npy_ct"
+    },
+    output_file="../output.json",
+    text_key="struct"  # Use "text" or "struct" here
+)

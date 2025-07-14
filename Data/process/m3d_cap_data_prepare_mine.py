@@ -22,12 +22,18 @@ def image_info(name, img):
     print("-----------------------")
 
 transforms = mtf.Compose([
-    # mtf.SpatialCropd(keys=["image", "con"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
-    mtf.CropForegroundd(keys=["pet", "ct", "con"], source_key="pet"),
-    mtf.Resized(keys=["pet", "ct", "con"], spatial_size=[32,256,256],
-                mode=['trilinear', 'trilinear', 'nearest'])
+    # mtf.SpatialCropd(keys=["image", "mask"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
+    mtf.CropForegroundd(keys=["pet", "mask", "ct"], source_key="pet"),
+    mtf.Resized(keys=["pet", "mask", "ct"], spatial_size=[32,256,256],
+                mode=['trilinear', 'nearest', 'trilinear'])
 ])
 
+transforms_focal = mtf.Compose([
+    # mtf.SpatialCropd(keys=["image", "mask"], roi_start=[100, 0, 0], roi_end=[350, 200, 200]),
+    mtf.CropForegroundd(keys=["pet_focal", "mask_focal", "ct_focal"], source_key="pet_focal"),
+    mtf.Resized(keys=["pet_focal", "mask_focal", "ct_focal"], spatial_size=[32,256,256],
+                mode=['trilinear', 'nearest', 'trilinear'])
+])
 
 def process_item(item, root_dir, output_dir):
     item_path = os.path.join(root_dir, item)
@@ -65,20 +71,22 @@ def process_item(item, root_dir, output_dir):
     # Apply MONAI transforms
     transformed = transforms({
         "pet": pet_cropped,
-        "ct": ct_cropped,
         "mask": mask_cropped,
+        "ct": ct_cropped
+    })
+    transformed_focal = transforms_focal({
         "pet_focal": pet_focal,
-        "ct_focal": ct_focal,
-        "mask_focal": mask_focal
+        "mask_focal": mask_focal,
+        "ct_focal": ct_focal
     })
 
     # Save processed outputs
     np.save(os.path.join(output_item_dir, "pet.npy"), transformed["pet"])
     np.save(os.path.join(output_item_dir, "ct.npy"), transformed["ct"])
     np.save(os.path.join(output_item_dir, "mask.npy"), transformed["mask"])
-    np.save(os.path.join(output_item_dir, "pet_focal.npy"), transformed["pet_focal"])
-    np.save(os.path.join(output_item_dir, "mask_focal.npy"), transformed["mask_focal"])
-    np.save(os.path.join(output_item_dir, "ct_focal.npy"), transformed["ct_focal"])
+    np.save(os.path.join(output_item_dir, "pet_focal.npy"), transformed_focal["pet_focal"])
+    np.save(os.path.join(output_item_dir, "mask_focal.npy"), transformed_focal["mask_focal"])
+    np.save(os.path.join(output_item_dir, "ct_focal.npy"), transformed_focal["ct_focal"])
 
     # Copy text file
     # shutil.copy(required_files["text"], os.path.join(output_item_dir, "text.txt"))
