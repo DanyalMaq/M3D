@@ -11,7 +11,7 @@ import monai.transforms as mtf
 from multiprocessing import Pool
 import shutil
 from unidecode import unidecode
-from utils import crop_image_around_lesion
+from utils import crop_image_around_lesion, focal_crop_around_mask
 
 def image_info(name, img):
     # pass
@@ -39,7 +39,7 @@ def process_item(item, root_dir, output_dir):
         "pet": os.path.join(item_path, "pet.nii.gz"),
         "mask": os.path.join(item_path, "mask.nii.gz"),
         "ct": os.path.join(item_path, "ct.nii.gz"),
-        "text": os.path.join(item_path, "text.txt"),
+        # "text": os.path.join(item_path, "text.txt"),
     }
 
     if not all(os.path.exists(path) for path in required_files.values()):
@@ -48,7 +48,7 @@ def process_item(item, root_dir, output_dir):
 
     # Output directory
     output_item_dir = os.path.join(output_dir, item)
-    os.makedirs(output_item_dir, exist_ok=True)
+    # os.makedirs(output_item_dir, exist_ok=True)
 
     # Load and transpose all images in one loop
     image_data = {}
@@ -60,21 +60,28 @@ def process_item(item, root_dir, output_dir):
     # Crop CT and PET/mask around lesion
     ct_cropped, _ = crop_image_around_lesion(image_data["ct"], image_data["mask"], 80, -300, 400)
     pet_cropped, mask_cropped = crop_image_around_lesion(image_data["pet"], image_data["mask"], 80, 0, 12)
+    pet_focal, mask_focal, ct_focal = focal_crop_around_mask(pet_cropped, mask_cropped, ct_cropped)
 
     # Apply MONAI transforms
     transformed = transforms({
         "pet": pet_cropped,
         "ct": ct_cropped,
-        "con": mask_cropped
+        "mask": mask_cropped,
+        "pet_focal": pet_focal,
+        "ct_focal": ct_focal,
+        "mask_focal": mask_focal
     })
 
     # Save processed outputs
     np.save(os.path.join(output_item_dir, "pet.npy"), transformed["pet"])
     np.save(os.path.join(output_item_dir, "ct.npy"), transformed["ct"])
-    np.save(os.path.join(output_item_dir, "contour.npy"), transformed["con"])
+    np.save(os.path.join(output_item_dir, "mask.npy"), transformed["mask"])
+    np.save(os.path.join(output_item_dir, "pet_focal.npy"), transformed["pet_focal"])
+    np.save(os.path.join(output_item_dir, "mask_focal.npy"), transformed["mask_focal"])
+    np.save(os.path.join(output_item_dir, "ct_focal.npy"), transformed["ct_focal"])
 
     # Copy text file
-    shutil.copy(required_files["text"], os.path.join(output_item_dir, "text.txt"))
+    # shutil.copy(required_files["text"], os.path.join(output_item_dir, "text.txt"))
 
     print(f"✅ Processed and saved: {item}")
 

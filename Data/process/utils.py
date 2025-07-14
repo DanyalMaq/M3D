@@ -62,6 +62,53 @@ def crop_image_around_lesion(
         mask[np.newaxis, start:end]
     )
 
+def focal_crop_around_mask(
+    pet: np.ndarray,
+    mask: np.ndarray,
+    ct: np.ndarray,
+    margin: int = 20
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Crops CT, PET, and mask volumes around the mask foreground (value == 1).
+    
+    Parameters:
+    - ct (np.ndarray): CT scan, shape (1, Z, Y, X)
+    - pet (np.ndarray): PET scan, shape (1, Z, Y, X)
+    - mask (np.ndarray): Binary mask, shape (1, Z, Y, X)
+    - margin (int): Number of voxels to include around the mask boundary in each direction
+
+    Returns:
+    - cropped_ct (np.ndarray): Cropped CT scan
+    - cropped_pet (np.ndarray): Cropped PET scan
+    - cropped_mask (np.ndarray): Cropped mask
+    """
+    assert ct.shape == pet.shape == mask.shape, "CT, PET, and mask must have same shape"
+    assert ct.ndim == 4, "Expected shape (1, Z, Y, X)"
+    
+    # Remove batch dimension
+    ct, pet, mask = ct[0], pet[0], mask[0]
+
+    # Find bounding box of non-zero mask region
+    indices = np.argwhere(mask)
+    if indices.size == 0:
+        raise ValueError("Mask contains no positive values.")
+    
+    zmin, ymin, xmin = np.maximum(indices.min(axis=0) - margin, 0)
+    zmax, ymax, xmax = np.minimum(indices.max(axis=0) + margin + 1, mask.shape)
+
+    # Crop all volumes
+    cropped_ct = ct[zmin:zmax, ymin:ymax, xmin:xmax]
+    cropped_pet = pet[zmin:zmax, ymin:ymax, xmin:xmax]
+    cropped_mask = mask[zmin:zmax, ymin:ymax, xmin:xmax]
+
+    # Reintroduce batch dimension
+    return (
+        cropped_pet[np.newaxis],
+        cropped_mask[np.newaxis],
+        cropped_ct[np.newaxis]
+    )
+
+
 def image_info(name, img):
     # pass
     print("-----------------------")

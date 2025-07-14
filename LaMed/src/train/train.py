@@ -66,7 +66,7 @@ class ModelArguments:
 @dataclass
 class DataArguments:
     modality_keys: Optional[List[str]] = field(
-        default_factory=lambda: ["pet", "ct", "mask"],
+        default_factory=lambda: ["pet", "ct", "mask", "pet_focal", "mask_focal", "ct_focal"],
         metadata={"help": "Determines the types of files needed"}
     )
     data_root: str = field(default="/mym3d/Data/data/", metadata={"help": "Root directory for all data."})

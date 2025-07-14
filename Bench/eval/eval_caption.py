@@ -55,7 +55,7 @@ def parse_args(args=None):
     parser.add_argument(
         '--modality_keys',
         nargs='+',
-        default=["pet", "ct", "mask"],
+        default=["pet", "ct", "mask", "pet_focal", "ct_focal", "mask_focal"],
         help="Determines the types of files needed"
     )
 
@@ -121,9 +121,12 @@ def main():
             pet = sample["pet"].to(device=device)
             mask = sample["mask"].to(device=device)
             ct = sample["ct"].to(device=device)
+            pet_focal = sample["pet_focal"].to(device=device)
+            ct_focal = sample["ct_focal"].to(device=device)
+            mask_focal = sample["mask_focal"].to(device=device)
 
 
-            generation = model.generate(pet, mask, ct, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
+            generation = model.generate(pet, mask, ct, pet_focal, mask_focal, ct_focal, input_id, max_new_tokens=args.max_new_tokens, do_sample=args.do_sample, top_p=args.top_p, temperature=args.temperature)
             generated_texts = tokenizer.batch_decode(generation, skip_special_tokens=True)
             # print(generated_texts[0])
 
