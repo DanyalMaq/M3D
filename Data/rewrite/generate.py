@@ -47,19 +47,22 @@ def generate(model: AutoModelForCausalLM = None, tokenizer: AutoTokenizer = None
     text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
-        add_generation_prompt=True
+        add_generation_prompt=True,
+        enable_thinking=False
     )
     model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
 
     generated_ids = model.generate(
         **model_inputs,
-        max_new_tokens=512
+        max_new_tokens=32768
     )
-    generated_ids = [
-        output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
-    ]
+    # generated_ids = [
+    #     output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+    # ]
 
-    response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    # response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist() 
+    response = tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
     # print(response)
     return response
 
@@ -68,7 +71,7 @@ def batch_generate(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, texts:
     
     messages_batch = [
         [
-            {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."},
+            {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant helping me parse radiology reports."},
             {"role": "user", "content": f"""
                 You are an expert in radiology report parsing.
 
@@ -102,7 +105,7 @@ def batch_generate(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, texts:
 
     generated_ids = model.generate(
         **model_inputs,
-        max_new_tokens=512
+        max_new_tokens=1024
     )
 
     generated_ids = [
@@ -121,7 +124,7 @@ def batch_generate(model: AutoModelForCausalLM, tokenizer: AutoTokenizer, texts:
 
 def main():
     parser = argparse.ArgumentParser(description="Generate formatted radiology information.")
-    parser.add_argument("--model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct", help="Path or name of the model")
+    parser.add_argument("--model_path", type=str, default="Qwen/Qwen3-8B", help="Path or name of the model")
     # parser.add_argument("--text", type=str, default="Head/Neck: There is asymmetric fullness within the left tonsillar pillar, with asymmetric increased FDG uptake, with SUV max 10.9 (axial slice 60).", help="Input radiology text")
 
     args = parser.parse_args()
