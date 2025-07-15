@@ -169,23 +169,23 @@ class LamedMetaForCausalLM(ABC):
     def get_vision_tower(self):
         return self.get_model().get_vision_tower()
 
-    def encode_images(self, pets, masks, cts=None, pets_focal=None, masks_focal=None, cts_focal=None):
+    def encode_images(self, pets, masks, cts=None, pet_focals=None, mask_focals=None, ct_focals=None):
         image_features = self.get_model().get_vision_tower()(pets, masks, cts)
-        if pets_focal is not None and masks_focal is not None and cts_focal is not None:
-            focal_image_features = self.get_model().get_vision_tower()(pets_focal, masks_focal, cts_focal)
+        if pet_focals is not None and mask_focals is not None and ct_focals is not None:
+            focal_image_features = self.get_model().get_vision_tower()(pet_focals, mask_focals, ct_focals)
             image_features = image_features + focal_image_features
         image_features = self.get_model().mm_projector(image_features)
         return image_features
 
     def prepare_inputs_for_multimodal(
         self, input_ids, position_ids, attention_mask, past_key_values, labels,
-        pets, masks, cts, pets_focal=None, masks_focal=None, cts_focal=None
+        pets, masks, cts, pet_focals=None, mask_focals=None, ct_focals=None
     ):
         vision_tower = self.get_vision_tower()
         if vision_tower is None or pets is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
         else:
-            image_features = self.encode_images(pets, masks, cts, pets_focal, masks_focal, cts_focal)
+            image_features = self.encode_images(pets, masks, cts, pet_focals, mask_focals, ct_focals)
             inputs_embeds = self.get_model().embed_tokens(input_ids)
             inputs_embeds = torch.cat(
                 (inputs_embeds[:, :1, :], image_features, inputs_embeds[:, (image_features.shape[1] + 1):, :]), dim=1)

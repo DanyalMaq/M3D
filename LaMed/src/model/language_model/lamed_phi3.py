@@ -45,9 +45,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
             pets: Optional[torch.FloatTensor] = None,
             masks: Optional[torch.FloatTensor] = None,
             cts: Optional[torch.FloatTensor] = None,
-            pets_focal: Optional[torch.FloatTensor] = None,
-            masks_focal: Optional[torch.FloatTensor] = None,
-            cts_focal: Optional[torch.FloatTensor] = None,
+            pet_focals: Optional[torch.FloatTensor] = None,
+            mask_focals: Optional[torch.FloatTensor] = None,
+            ct_focals: Optional[torch.FloatTensor] = None,
             input_ids: torch.LongTensor = None,
             labels: Optional[torch.LongTensor] = None,
             attention_mask: Optional[torch.Tensor] = None,
@@ -82,9 +82,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 pets,
                 masks,
                 cts,
-                pets_focal=pets_focal,
-                masks_focal=masks_focal,
-                cts_focal=cts_focal
+                pet_focals=pet_focals,
+                mask_focals=mask_focals,
+                ct_focals=ct_focals
             )
 
         try:
@@ -162,9 +162,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
         pets: Optional[torch.Tensor] = None,
         masks: Optional[torch.Tensor] = None,
         cts: Optional[torch.Tensor] = None,
-        pets_focal: Optional[torch.Tensor] = None,
-        masks_focal: Optional[torch.Tensor] = None,
-        cts_focal: Optional[torch.Tensor] = None,
+        pet_focals: Optional[torch.Tensor] = None,
+        mask_focals: Optional[torch.Tensor] = None,
+        ct_focals: Optional[torch.Tensor] = None,
         inputs: Optional[torch.Tensor] = None,
         seg_enable: bool = False,
         **kwargs,
@@ -193,9 +193,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
                 pets,
                 masks,
                 cts,
-                pets_focal,
-                masks_focal,
-                cts_focal
+                pet_focals,
+                mask_focals,
+                ct_focals
             )
             print(inputs)
         else:
@@ -251,9 +251,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
         pets = kwargs.pop("pets", None)
         masks = kwargs.pop("masks", None)
         cts = kwargs.pop("cts", None)
-        pets_focal = kwargs.pop("pets_focal", None)
-        cts_focal = kwargs.pop("cts_focal", None)
-        masks_focal = kwargs.pop("masks_focal", None)
+        pet_focals = kwargs.pop("pet_focals", None)
+        ct_focals = kwargs.pop("ct_focals", None)
+        mask_focals = kwargs.pop("mask_focals", None)
         inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, inputs_embeds=inputs_embeds, **kwargs
         )
@@ -261,9 +261,9 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
             inputs['pets'] = pets
             inputs['masks'] = masks
             inputs['cts'] = cts
-            inputs['pets_focal'] = pets_focal
-            inputs['cts_focal'] = cts_focal
-            inputs['masks_focal'] = masks_focal
+            inputs['pet_focals'] = pet_focals
+            inputs['ct_focals'] = ct_focals
+            inputs['mask_focals'] = mask_focals
         return inputs
 
 

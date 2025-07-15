@@ -86,7 +86,7 @@ def main():
     )
     model = model.to(device=device)
 
-    test_dataset = MyCapDataset(args, tokenizer=tokenizer, mode='val') # test1k
+    test_dataset = MyCapDataset(args, tokenizer=tokenizer, mode='test') # test1k
     # from torch.utils.data import random_split
     # total_len = len(full_dataset)
     # train_len = int(0.8 * total_len)

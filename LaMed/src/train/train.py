@@ -405,18 +405,18 @@ def main():
     # else:
     full_dataset = UniDatasets(data_args, tokenizer, mode='train')
 
-    # eval_dataset = MyCapDataset(data_args, tokenizer, mode='validation')
+    eval_dataset = MyCapDataset(data_args, tokenizer, mode='test')
     data_collator = DataCollator(data_args)
 
-    from torch.utils.data import random_split
-    total_len = len(full_dataset)
-    train_len = int(0.8 * total_len)
-    eval_len = total_len - train_len
-    train_dataset, eval_dataset = random_split(
-        full_dataset,
-        [train_len, eval_len],
-        generator=torch.Generator().manual_seed(42)
-    )
+    # from torch.utils.data import random_split
+    # total_len = len(full_dataset)
+    # train_len = int(0.8 * total_len)
+    # eval_len = total_len - train_len
+    # train_dataset, eval_dataset = random_split(
+    #     full_dataset,
+    #     [train_len, eval_len],
+    #     generator=torch.Generator().manual_seed(42)
+    # )
 
     rank0_print("="*20 + " Training " + "="*20)
     trainer = LaMedTrainer(
@@ -429,7 +429,7 @@ def main():
                             preprocess_logits_for_metrics=preprocess_logits_for_metrics
                       )
 
-    trainer.train(resume_from_checkpoint=True)
+    trainer.train()#resume_from_checkpoint=True
     trainer.save_state()
     model.config.use_cache = True
 

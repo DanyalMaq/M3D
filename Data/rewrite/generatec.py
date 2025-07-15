@@ -148,7 +148,7 @@ def main():
     # Your generate function (assumed already defined elsewhere)
     # from your_module import generate
 
-    BASE_DIR = '/mym3d/Data/data/testing_npy_ct'
+    BASE_DIR = '/mym3d/Data/data/training_npy_ct'
     # print(os.listdir(BASE_DIR))
 
     for root, dirs, files in os.walk(BASE_DIR):

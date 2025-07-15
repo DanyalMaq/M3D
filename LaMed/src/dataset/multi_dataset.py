@@ -49,7 +49,7 @@ class MyCapDataset(Dataset):
         return len(self.data_list)
 
     def __getitem__(self, idx):
-        for attempt in range(2):
+        for attempt in range(10):
             try:
                 data = self.data_list[idx]
 
