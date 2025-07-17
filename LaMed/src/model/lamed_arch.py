@@ -69,6 +69,7 @@ class LamedMetaModel:
 
         # vision tower
         if self.get_vision_tower() is None:
+            print("Rebuilding from scratch completely")
             self.vision_tower = build_vision_tower(self.config)
             # If you have a more robust vision encoder, try freezing the vision tower by requires_grad_(False)
             self.vision_tower.requires_grad_(not model_args.freeze_vision_tower)

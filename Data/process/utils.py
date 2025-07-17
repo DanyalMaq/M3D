@@ -12,21 +12,26 @@ from multiprocessing import Pool
 import shutil
 from unidecode import unidecode
 
+import numpy as np
+
 def crop_image_around_lesion(
     image: np.ndarray,
     mask_image: np.ndarray,
     margin: int = 60,
+    variance: int = 15,
     clip_val_min: float = 0,
     clip_val_max: float = 12,
     normalize: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Crops the Medical scan and segmentation mask around the lesion along the z-axis.
+    Crops the Medical scan and segmentation mask around the lesion along the z-axis
+    with randomized margin variation.
 
     Parameters:
     - image (np.ndarray): Medical scan of shape (1, Z, Y, X)
     - mask_image (np.ndarray): Segmentation mask of shape (1, Z, Y, X)
-    - margin (int): Number of slices to include above and below the lesion
+    - margin (int): Base number of slices to include above and below the lesion center
+    - variance (int): Max random variation (+/-) added to margin
     - clip_val_min (float): Minimum PET value for clipping
     - clip_val_max (float): Maximum PET value for clipping
     - normalize (bool): Whether to normalize PET to [0, 1] after clipping
@@ -52,15 +57,20 @@ def crop_image_around_lesion(
         raise ValueError("No lesion found in the segmentation mask.")
 
     z_indices = np.where(lesion_slices)[0]
-    center = (z_indices[0] + z_indices[-1]) // 2  # faster than mean for span
-    start = max(0, center - margin)
-    end = min(image.shape[0], center + margin + 1)
+    center = (z_indices[0] + z_indices[-1]) // 2
+
+    # Apply random variation to margin
+    random_margin = margin + np.random.randint(-variance, variance + 1)
+    start = max(0, center - random_margin)
+    random_margin = margin + np.random.randint(-variance, variance + 1)
+    end = min(image.shape[0], center + random_margin + 1)
 
     # Crop and reintroduce batch dimension
     return (
         image[np.newaxis, start:end],
         mask[np.newaxis, start:end]
     )
+
 
 def focal_crop_around_mask(
     pet: np.ndarray,

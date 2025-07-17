@@ -325,10 +325,10 @@ def main():
         else:
             raise ValueError(f"Unknown Model Type {model_args.model_type}")
     else:
-        model = LlamaForCausalLM.from_pretrained(
+        model = LamedPhi3ForCausalLM.from_pretrained(
             model_args.model_name_or_path,
             cache_dir=training_args.cache_dir
-        )
+            )
 
     model.config.seg_token_id = model_args.seg_token_id
     model.config.use_cache = False
@@ -366,7 +366,7 @@ def main():
 
     if model_args.pretrain_mllm:
         ckpt = torch.load(model_args.pretrain_mllm, map_location="cpu")
-        model.load_state_dict(ckpt, strict=False)
+        model.load_state_dict(ckpt, strict=True)
         rank0_print("load pretrained MLLM weights.")
 
     if training_args.lora_enable:
@@ -403,7 +403,7 @@ def main():
     # if model_args.tune_mm_mlp_adapter:
     #     train_dataset = TextDatasets(data_args, tokenizer, mode='train')
     # else:
-    full_dataset = UniDatasets(data_args, tokenizer, mode='train')
+    train_dataset = UniDatasets(data_args, tokenizer, mode='train')
 
     eval_dataset = MyCapDataset(data_args, tokenizer, mode='test')
     data_collator = DataCollator(data_args)

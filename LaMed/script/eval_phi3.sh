@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# sh LaMed/script/eval_phi3.sh "focal/ct-mask-finetune-0000" True True
+# sh LaMed/script/eval_phi3.sh "focal/ct-mask-finetune-0001" True True
 
 EXPERIMENT_NAME=$1  # e.g., cvpr or mytest/run1
 MASK=$2
