@@ -9,27 +9,27 @@ from transformers import AutoConfig, AutoModelForCausalLM, \
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.generation.utils import GenerateOutput
 
-from ..lamed_arch import LamedMetaModel, LamedMetaForCausalLM
+from petar.src.model.petar_arch import PetarMetaModel, PetarMetaForCausalLM
 
 
-class LamedPhi3Config(Phi3Config):
+class PetarPhi3Config(Phi3Config):
     model_type = "lamed_phi3"
 
 
-class LamedPhi3Model(LamedMetaModel, Phi3Model):
-    config_class = LamedPhi3Config
+class PetarPhi3Model(PetarMetaModel, Phi3Model):
+    config_class = PetarPhi3Config
     def __init__(self, config: Phi3Config):
         # print(config)
-        super(LamedPhi3Model, self).__init__(config)
+        super(PetarPhi3Model, self).__init__(config)
 
 
-class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
-    config_class = LamedPhi3Config
+class PetarPhi3ForCausalLM(PetarMetaForCausalLM, Phi3ForCausalLM):
+    config_class = PetarPhi3Config
 
     def __init__(self, config):
-        super(LamedPhi3ForCausalLM, self).__init__(config)
+        super(PetarPhi3ForCausalLM, self).__init__(config)
         print("starting inside phi3")
-        self.model = LamedPhi3Model(config)
+        self.model = PetarPhi3Model(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
@@ -249,5 +249,5 @@ class LamedPhi3ForCausalLM(LamedMetaForCausalLM, Phi3ForCausalLM):
         return inputs
 
 
-AutoConfig.register("lamed_phi3", LamedPhi3Config)
-AutoModelForCausalLM.register(LamedPhi3Config, LamedPhi3ForCausalLM)
+AutoConfig.register("petar_phi3", PetarPhi3Config)
+AutoModelForCausalLM.register(PetarPhi3Config, PetarPhi3ForCausalLM)

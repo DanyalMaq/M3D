@@ -23,13 +23,16 @@ import deepspeed
 
 from transformers import AutoConfig
 from torch.utils.data import Dataset
-from llava.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, IMAGE_TOKEN_INDEX
-from llava.train.trainer import LLaVATrainer
+from petar.src.utils.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, IMAGE_TOKEN_INDEX
+from petar.src.train.trainer import LLaVATrainer
 
-from llava import conversation as conversation_lib
-from llava.model import *
-from llava.mm_utils import process_highres_image, process_anyres_image, process_highres_image_crop_split, tokenizer_image_token
-from llava.utils import rank0_print, process_video_with_pyav, process_video_with_decord
+from petar.src.utils import conversation as conversation_lib
+from petar.src.model import *
+from petar.src.utils.mm_utils import process_highres_image, process_anyres_image, process_highres_image_crop_split, tokenizer_image_token
+from petar.src.utils.utils import rank0_print, process_video_with_pyav, process_video_with_decord
+
+from petar.src.train.args import DataArguments
+from petar.src.data.preprocess import preprocess, preprocess_multimodal
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
@@ -231,61 +234,6 @@ class LazySupervisedDataset(Dataset):
                 image = [self.process_image(image_file)]
             sources = preprocess_multimodal(copy.deepcopy([e["conversations"] for e in sources]), self.data_args)
 
-        elif "video" in sources[0]:
-            video_file = self.list_data_dict[i]["video"]
-            video_folder = self.data_args.video_folder
-            video_file = os.path.join(video_folder, video_file)
-            suffix = video_file.split(".")[-1]
-            if not os.path.exists(video_file):
-                print("File {} not exist!".format(video_file))
-
-            try:
-                if "shareVideoGPTV" in video_file:
-                    frame_files = [os.path.join(video_file, f) for f in os.listdir(video_file) if os.path.isfile(os.path.join(video_file, f))]
-                    frame_files.sort()  # Ensure the frames are sorted if they are named sequentially
-
-                    # TODO: Hard CODE: Determine the indices for uniformly sampling 10 frames
-                    if self.data_args.force_sample:
-                        num_frames_to_sample = self.data_args.frames_upbound
-                    else:
-                        num_frames_to_sample = 10
-
-                    avg_fps = 2
-                    
-                    total_frames = len(frame_files)
-                    sampled_indices = np.linspace(0, total_frames - 1, num_frames_to_sample, dtype=int)
-
-
-                    frame_time = [i/2 for i in sampled_indices]
-                    frame_time = ",".join([f"{i:.2f}s" for i in frame_time])
-
-                    video_time = total_frames / avg_fps
-
-                    # Read and store the sampled frames
-                    video = []
-                    for idx in sampled_indices:
-                        frame_path = frame_files[idx]
-                        try:
-                            with Image.open(frame_path) as img:
-                                frame = img.convert("RGB")
-                                video.append(frame)
-                        except IOError:
-                            print(f"Failed to read frame at path: {frame_path}")
-                else:
-                    video, video_time, frame_time, num_frames_to_sample = process_video_with_decord(video_file, self.data_args)
-
-                processor = self.data_args.image_processor
-                image = processor.preprocess(video, return_tensors="pt")["pixel_values"]
-                if self.data_args.add_time_instruction:
-                    time_instruciton = f"The video lasts for {video_time:.2f} seconds, and {num_frames_to_sample} frames are uniformly sampled from it. These frames are located at {frame_time}.Please answer the following questions related to this video."
-                    sources[0]["conversations"][0]["value"] = f'{DEFAULT_IMAGE_TOKEN}\n{time_instruciton}\n{sources[0]["conversations"][0]["value"].replace(DEFAULT_IMAGE_TOKEN, "")}'
-                image = [(image, video[0].size, "video")]
-                sources = preprocess_multimodal(copy.deepcopy([e["conversations"] for e in sources]), self.data_args)
-                # print(sources)
-            except Exception as e:
-                print(f"Error: {e}")
-                print(f"Failed to read video file: {video_file}")
-                return self._get_item(i + 1)
         else:
             sources = copy.deepcopy([e["conversations"] for e in sources])
 

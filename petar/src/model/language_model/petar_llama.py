@@ -29,11 +29,11 @@ from transformers import LlamaModel, LlamaForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.generation.utils import GenerateOutput
 
-from llava.model.llava_arch import LlavaMetaModel, LlavaMetaForCausalLM
+from petar.src.model.petar_arch import PetarMetaModel, PetarMetaForCausalLM
 
 
-class LlavaConfig(LlamaConfig):
-    model_type = "llava_llama"
+class PetarConfig(LlamaConfig):
+    model_type = "Petar_llama"
     temperature: float = 0.0  # reset to 0.0, previously 0.9 for Vicuna
     max_new_tokens: int = 1024
     do_sample: bool = False
@@ -41,24 +41,24 @@ class LlavaConfig(LlamaConfig):
     # rope_scaling: Optional[dict] = {}
 
 
-class LlavaLlamaModel(LlavaMetaModel, LlamaModel):
-    config_class = LlavaConfig
+class PetarLlamaModel(PetarMetaModel, LlamaModel):
+    config_class = PetarConfig
 
     def __init__(self, config: LlamaConfig):
-        super(LlavaLlamaModel, self).__init__(config)
+        super(PetarLlamaModel, self).__init__(config)
 
 
-class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
-    config_class = LlavaConfig
+class PetarLlamaForCausalLM(LlamaForCausalLM, PetarMetaForCausalLM):
+    config_class = PetarConfig
 
     def __init__(self, config):
         LlamaForCausalLM.__init__(self, config)
 
         # configure default generation settings
-        config.model_type = "llava_llama"
+        config.model_type = "Petar_llama"
         # config.rope_scaling = None
 
-        self.model = LlavaLlamaModel(config)
+        self.model = PetarLlamaModel(config)
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         # Initialize weights and apply final processing
         self.post_init()
@@ -152,5 +152,5 @@ class LlavaLlamaForCausalLM(LlamaForCausalLM, LlavaMetaForCausalLM):
         return inputs
 
 
-AutoConfig.register("llava_llama", LlavaConfig)
-AutoModelForCausalLM.register(LlavaConfig, LlavaLlamaForCausalLM)
+AutoConfig.register("petar_llama", PetarConfig)
+AutoModelForCausalLM.register(PetarConfig, PetarLlamaForCausalLM)

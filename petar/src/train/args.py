@@ -145,3 +145,20 @@ class TrainingArguments(transformers.TrainingArguments):
     gradient_checkpointing: bool = field(default=True)
     verbose_logging: bool = field(default=False)
     attn_implementation: str = field(default="flash_attention_2", metadata={"help": "Use transformers attention implementation."})
+
+# @dataclass
+# class EvaluationArguments:
+#     eval_num_processes: int = field(default=1)
+#     task_names: str = field(default=None)
+#     model: str = field(default="llava")
+#     model_args: Optional[str] = field(default=None)
+#     num_fewshot: Optional[int] = field(default=None)
+#     batch_size: int = field(default=1)
+#     device: Optional[str] = field(default=None)
+#     limit: Optional[int] = field(default=None)
+#     check_integrity: Optional[bool] = field(default=False)
+#     show_task_to_terminal: Optional[bool] = field(default=False)
+#     log_samples: Optional[bool] = field(default=True)
+#     gen_kwargs: Optional[str] = field(default="")
+#     log_samples_suffix: Optional[str] = field(default="")
+#     output_path: Optional[str] = field(default="./logs/")

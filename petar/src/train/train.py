@@ -39,37 +39,23 @@ import deepspeed
 
 from transformers import AutoConfig
 from torch.utils.data import Dataset
-from llava.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, IMAGE_TOKEN_INDEX
-from llava.train.trainer import LLaVATrainer
 
-from llava import conversation as conversation_lib
-from llava.model import *
-from llava.mm_utils import process_highres_image, process_anyres_image, process_highres_image_crop_split, tokenizer_image_token
-from llava.utils import rank0_print, process_video_with_pyav, process_video_with_decord
+from petar.src.data.dataset import LazySupervisedDataset, DataCollatorForSupervisedDataset
+from petar.src.train.args import ModelArguments, TrainingArguments, DataArguments
+
+from petar.src.utils.constants import IGNORE_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN, IMAGE_TOKEN_INDEX
+from petar.src.train.trainer import LLaVATrainer
+
+from petar.src.utils import conversation as conversation_lib
+from petar.src.model import *
+from petar.src.model.language_model import *
+from petar.src.utils.mm_utils import process_highres_image, process_anyres_image, process_highres_image_crop_split, tokenizer_image_token
+from petar.src.utils.utils import rank0_print, process_video_with_pyav, process_video_with_decord
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 local_rank = None
-
-
-
-# @dataclass
-# class EvaluationArguments:
-#     eval_num_processes: int = field(default=1)
-#     task_names: str = field(default=None)
-#     model: str = field(default="llava")
-#     model_args: Optional[str] = field(default=None)
-#     num_fewshot: Optional[int] = field(default=None)
-#     batch_size: int = field(default=1)
-#     device: Optional[str] = field(default=None)
-#     limit: Optional[int] = field(default=None)
-#     check_integrity: Optional[bool] = field(default=False)
-#     show_task_to_terminal: Optional[bool] = field(default=False)
-#     log_samples: Optional[bool] = field(default=True)
-#     gen_kwargs: Optional[str] = field(default="")
-#     log_samples_suffix: Optional[str] = field(default="")
-#     output_path: Optional[str] = field(default="./logs/")
 
 
 def maybe_zero_3(param, ignore_status=False, name=None):
@@ -288,36 +274,8 @@ def get_model(model_args, training_args, bnb_model_from_pretrained_args):
             **customized_kwargs,
         )
     elif model_args.vision_tower is not None:
-        if "mixtral" in model_args.model_name_or_path.lower():
-            model = LlavaMixtralForCausalLM.from_pretrained(
-                model_args.model_name_or_path,
-                cache_dir=training_args.cache_dir,
-                attn_implementation=training_args.attn_implementation,
-                torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
-                low_cpu_mem_usage=False,
-                **customized_kwargs,
-            )
-            from transformers.models.mixtral.modeling_mixtral import MixtralSparseMoeBlock
-
-            deepspeed.utils.set_z3_leaf_modules(model, [MixtralSparseMoeBlock])
-        elif "mistral" in model_args.model_name_or_path.lower() or "zephyr" in model_args.model_name_or_path.lower():
-            model = LlavaMistralForCausalLM.from_pretrained(
-                model_args.model_name_or_path,
-                cache_dir=training_args.cache_dir,
-                attn_implementation=training_args.attn_implementation,
-                torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
-                low_cpu_mem_usage=False,
-                **customized_kwargs,
-            )
-        elif (
-            "wizardlm-2" in model_args.model_name_or_path.lower()
-            or "vicuna" in model_args.model_name_or_path.lower()
-            or "llama" in model_args.model_name_or_path.lower()
-            or "yi" in model_args.model_name_or_path.lower()
-            or "nous-hermes" in model_args.model_name_or_path.lower()
-            and "wizard-2" in model_args.model_name_or_path.lower()
-        ):
-            model = LlavaLlamaForCausalLM.from_pretrained(
+        if "llama" in model_args.model_name_or_path.lower():
+            model = PetarLlamaForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
                 cache_dir=training_args.cache_dir,
                 attn_implementation=training_args.attn_implementation,
@@ -326,29 +284,7 @@ def get_model(model_args, training_args, bnb_model_from_pretrained_args):
                 **customized_kwargs,
             )
         elif "qwen" in model_args.model_name_or_path.lower():
-            if "moe" in model_args.model_name_or_path.lower() or "A14B" in model_args.model_name_or_path:
-                model = LlavaQwenMoeForCausalLM.from_pretrained(
-                    model_args.model_name_or_path,
-                    cache_dir=training_args.cache_dir,
-                    attn_implementation=training_args.attn_implementation,
-                    torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
-                    low_cpu_mem_usage=False,
-                    **customized_kwargs,
-                )
-                from transformers.models.qwen2_moe.modeling_qwen2_moe import Qwen2MoeSparseMoeBlock
-
-                deepspeed.utils.set_z3_leaf_modules(model, [Qwen2MoeSparseMoeBlock])
-            else:
-                model = LlavaQwenForCausalLM.from_pretrained(
-                    model_args.model_name_or_path,
-                    cache_dir=training_args.cache_dir,
-                    attn_implementation=training_args.attn_implementation,
-                    torch_dtype=(torch.bfloat16 if training_args.bf16 else None),
-                    low_cpu_mem_usage=False,
-                    **customized_kwargs,
-                )
-        elif "gemma" in model_args.model_name_or_path.lower():
-            model = LlavaGemmaForCausalLM.from_pretrained(
+            model = PetarQwenForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
                 cache_dir=training_args.cache_dir,
                 attn_implementation=training_args.attn_implementation,
@@ -453,8 +389,6 @@ def train(attn_implementation=None):
         rank0_print("Adding LoRA adapters...")
         model = get_peft_model(model, lora_config)
 
-    if "mistral" in model_args.model_name_or_path.lower() or "mixtral" in model_args.model_name_or_path.lower() or "zephyr" in model_args.model_name_or_path.lower():
-        tokenizer = transformers.AutoTokenizer.from_pretrained(model_args.model_name_or_path, cache_dir=training_args.cache_dir, model_max_length=training_args.model_max_length, padding_side="left")
     elif "qwen" in model_args.model_name_or_path.lower():
         tokenizer = transformers.AutoTokenizer.from_pretrained(model_args.model_name_or_path, cache_dir=training_args.cache_dir, model_max_length=training_args.model_max_length, padding_side="right")
     elif (

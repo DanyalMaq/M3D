@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-d
+
 from abc import ABC, abstractmethod
 
 import math
@@ -24,17 +24,16 @@ from .multimodal_encoder.builder import build_vision_tower
 from .multimodal_resampler.builder import build_vision_resampler
 from .multimodal_projector.builder import build_vision_projector
 
-from llava.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
+from petar.src.utils.constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_PATCH_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
 
-from llava.mm_utils import get_anyres_image_grid_shape
-from llava.utils import rank0_print, rank_print
+from petar.src.utils.mm_utils import get_anyres_image_grid_shape
+from petar.src.utils.utils import rank0_print, rank_print
 import random
 
 
-class LlavaMetaModel:
-
+class PetarMetaModel:
     def __init__(self, config):
-        super(LlavaMetaModel, self).__init__(config)
+        super(PetarMetaModel, self).__init__(config)
 
         if hasattr(config, "mm_vision_tower"):
             delay_load = getattr(config, "delay_load", False)
@@ -159,7 +158,7 @@ def unpad_image(tensor, original_size):
     return unpadded_tensor
 
 
-class LlavaMetaForCausalLM(ABC):
+class PetarMetaForCausalLM(ABC):
 
     @abstractmethod
     def get_model(self):
@@ -307,47 +306,7 @@ class LlavaMetaForCausalLM(ABC):
                     # we want to first unflatten it to (2, 2, h, w, hidden_size)
                     # rank0_print("At least we are reaching here")
                     # import pdb; pdb.set_trace()
-                    if image_idx in video_idx_in_batch:  # video operations
-                        # rank0_print("Video")
-                        if mm_newline_position == "grid":
-                            # Grid-wise
-                            image_feature = self.add_token_per_grid(image_feature)
-                            if getattr(self.config, "add_faster_video", False):
-                                faster_video_feature = self.add_token_per_grid(all_faster_video_features[image_idx])
-                                # Add a token for each frame
-                                concat_slow_fater_token = []
-                                # import pdb; pdb.set_trace()
-                                for _ in range(image_feature.shape[0]):
-                                    if _ % self.config.faster_token_stride == 0:
-                                        concat_slow_fater_token.append(torch.cat((image_feature[_], self.model.faster_token[None].to(image_feature.device)), dim=0))
-                                    else:
-                                        concat_slow_fater_token.append(torch.cat((faster_video_feature[_], self.model.faster_token[None].to(image_feature.device)), dim=0))
-                                # import pdb; pdb.set_trace()
-                                image_feature = torch.cat(concat_slow_fater_token)
-
-                                # print("!!!!!!!!!!!!")
-                        
-                            new_image_features.append(image_feature)
-                        elif mm_newline_position == "frame":
-                            # Frame-wise
-                            image_feature = self.add_token_per_frame(image_feature)
-
-                            new_image_features.append(image_feature.flatten(0, 1))
-                            
-                        elif mm_newline_position == "one_token":
-                            # one-token
-                            image_feature = image_feature.flatten(0, 1)
-                            if 'unpad' in mm_patch_merge_type:
-                                image_feature = torch.cat((
-                                    image_feature,
-                                    self.model.image_newline[None].to(image_feature.device)
-                                ), dim=0)
-                            new_image_features.append(image_feature)      
-                        elif mm_newline_position == "no_token":
-                            new_image_features.append(image_feature.flatten(0, 1))
-                        else:
-                            raise ValueError(f"Unexpected mm_newline_position: {mm_newline_position}")
-                    elif image_feature.shape[0] > 1:  # multi patches and multi images operations
+                    if image_feature.shape[0] > 1:  # multi patches and multi images operations
                         # rank0_print("Single-images")
                         base_image_feature = image_feature[0]
                         image_feature = image_feature[1:]

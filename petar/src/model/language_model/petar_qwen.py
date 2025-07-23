@@ -25,26 +25,26 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers.generation.utils import GenerateOutput
 
 # from ...constants import IGNORE_INDEX, IMAGE_TOKEN_INDEX, DEFAULT_IMAGE_TOKEN, DEFAULT_IM_START_TOKEN, DEFAULT_IM_END_TOKEN
-from llava.model.llava_arch import LlavaMetaModel, LlavaMetaForCausalLM
+from petar.src.model.petar_arch import PetarMetaForCausalLM, PetarMetaModel
 from transformers import Qwen2Config, Qwen2Model, Qwen2ForCausalLM
 
 # from .qwen.modeling_qwen import QWenLMHeadModel, QWenModel
 # from .qwen.configuration_qwen import QWenConfig
 
 
-class LlavaQwenConfig(Qwen2Config):
+class PetarQwenConfig(Qwen2Config):
     model_type = "llava_qwen"
 
 
-class LlavaQwenModel(LlavaMetaModel, Qwen2Model):
-    config_class = LlavaQwenConfig
+class PetarQwenModel(PetarMetaModel, Qwen2Model):
+    config_class = PetarQwenConfig
 
     def __init__(self, config: Qwen2Config):
-        super(LlavaQwenModel, self).__init__(config)
+        super(PetarQwenModel, self).__init__(config)
 
 
-class LlavaQwenForCausalLM(Qwen2ForCausalLM, LlavaMetaForCausalLM):
-    config_class = LlavaQwenConfig
+class PetarQwenForCausalLM(Qwen2ForCausalLM, PetarMetaForCausalLM):
+    config_class = PetarQwenConfig
 
     def __init__(self, config):
         # super(Qwen2ForCausalLM, self).__init__(config)
@@ -52,7 +52,7 @@ class LlavaQwenForCausalLM(Qwen2ForCausalLM, LlavaMetaForCausalLM):
         config.model_type = "llava_qwen"
         config.rope_scaling = None
 
-        self.model = LlavaQwenModel(config)
+        self.model = PetarQwenModel(config)
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         # Initialize weights and apply final processing
         self.post_init()
@@ -145,5 +145,5 @@ class LlavaQwenForCausalLM(Qwen2ForCausalLM, LlavaMetaForCausalLM):
         return inputs
 
 
-AutoConfig.register("llava_qwen", LlavaQwenConfig)
-AutoModelForCausalLM.register(LlavaQwenConfig, LlavaQwenForCausalLM)
+AutoConfig.register("petar_qwen", PetarQwenConfig)
+AutoModelForCausalLM.register(PetarQwenConfig, PetarQwenForCausalLM)
