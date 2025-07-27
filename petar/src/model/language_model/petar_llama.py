@@ -33,7 +33,7 @@ from petar.src.model.petar_arch import PetarMetaModel, PetarMetaForCausalLM
 
 
 class PetarConfig(LlamaConfig):
-    model_type = "Petar_llama"
+    model_type = "petar_llama"
     temperature: float = 0.0  # reset to 0.0, previously 0.9 for Vicuna
     max_new_tokens: int = 1024
     do_sample: bool = False
@@ -55,7 +55,7 @@ class PetarLlamaForCausalLM(LlamaForCausalLM, PetarMetaForCausalLM):
         LlamaForCausalLM.__init__(self, config)
 
         # configure default generation settings
-        config.model_type = "Petar_llama"
+        config.model_type = "petar_llama"
         # config.rope_scaling = None
 
         self.model = PetarLlamaModel(config)

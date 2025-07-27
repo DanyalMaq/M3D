@@ -13,7 +13,7 @@ from petar.src.model.petar_arch import PetarMetaModel, PetarMetaForCausalLM
 
 
 class PetarPhi3Config(Phi3Config):
-    model_type = "lamed_phi3"
+    model_type = "petar_phi3"
 
 
 class PetarPhi3Model(PetarMetaModel, Phi3Model):

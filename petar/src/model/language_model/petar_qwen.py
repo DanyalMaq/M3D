@@ -33,7 +33,7 @@ from transformers import Qwen2Config, Qwen2Model, Qwen2ForCausalLM
 
 
 class PetarQwenConfig(Qwen2Config):
-    model_type = "llava_qwen"
+    model_type = "petar_qwen"
 
 
 class PetarQwenModel(PetarMetaModel, Qwen2Model):
@@ -49,7 +49,7 @@ class PetarQwenForCausalLM(Qwen2ForCausalLM, PetarMetaForCausalLM):
     def __init__(self, config):
         # super(Qwen2ForCausalLM, self).__init__(config)
         Qwen2ForCausalLM.__init__(self, config)
-        config.model_type = "llava_qwen"
+        config.model_type = "petar_qwen"
         config.rope_scaling = None
 
         self.model = PetarQwenModel(config)
