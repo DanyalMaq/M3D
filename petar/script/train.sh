@@ -31,8 +31,8 @@ echo "BASE_RUN_NAME: ${BASE_RUN_NAME}"
 accelerate launch src/train/train.py \
     --model_name_or_path ${LLM_VERSION} \
     --version ${PROMPT_VERSION} \
-    --data_path=/mym3d/Data/sample/train.json \
-    --image_folder /mym3d/Data/sample/images \
+    --data_path=../Data/sample/train.json \
+    --image_folder ../Data/sample/images \
     --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
     --mm_vision_tower_lr=2e-6 \
     --vision_tower ${VISION_MODEL_VERSION} \
@@ -46,8 +46,8 @@ accelerate launch src/train/train.py \
     --mm_patch_merge_type spatial_unpad \
     --bf16 True \
     --run_name $BASE_RUN_NAME \
-    --output_dir "/checkpoints/${BASE_RUN_NAME}" \
-    --num_train_epochs 3 \
+    --output_dir "../results/checkpoints/${BASE_RUN_NAME}" \
+    --num_train_epochs 1 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 1 \
