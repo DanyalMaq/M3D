@@ -1,10 +1,12 @@
 Data/data/*
 Data/training
+Data/validation
 Data/testing
 Data/patient_data
 Data/*.json
 Data/process/*.json
 LaMed/output/*
+petar/output/*
 models
 *.bin
 output/*
