@@ -1,3 +1,11 @@
+#!/bin/bash
+
+export NUM_GPUS=2
+export NNODES=1
+export RANK=0
+export ADDR=127.0.0.1
+export PORT=29500
+
 export OMP_NUM_THREADS=8
 export NCCL_IB_DISABLE=0
 export NCCL_IB_GID_INDEX=3
@@ -8,7 +16,7 @@ LLM_VERSION="Qwen/Qwen2-0.5B-Instruct"
 LLM_VERSION_CLEAN="${LLM_VERSION//\//_}"
 VISION_MODEL_VERSION="openai/clip-vit-large-patch14-336"
 VISION_MODEL_VERSION_CLEAN="${VISION_MODEL_VERSION//\//_}"
-export PYTORCH_ENABLE_MPS_FALLBACK=1
+# export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 ############### Pretrain ################
 
@@ -17,9 +25,9 @@ PROMPT_VERSION="qwen_1_5"
 BASE_RUN_NAME="petar-${VISION_MODEL_VERSION_CLEAN}-${LLM_VERSION_CLEAN}-mlp2x_gelu-pretrain_blip558k_plain"
 echo "BASE_RUN_NAME: ${BASE_RUN_NAME}"
 
-# ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NNODES}" --node_rank="${RANK}" --master_addr="${ADDR}" --master_port="${PORT}" \
-ACCELERATE_CPU_AFFINITY=1 torchrun \
+ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NNODES}" --node_rank="${RANK}" --master_addr="${ADDR}" --master_port="${PORT}" \
     src/train/train.py \
+    --deepspeed /mym3d/M3D/petar/script/zero3.json \
     --model_name_or_path ${LLM_VERSION} \
     --version ${PROMPT_VERSION} \
     --data_path=/Users/Patron/Desktop/S25/M3D/Data/sample/train.json \
@@ -51,7 +59,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun \
     --warmup_ratio 0.03 \
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
-    --tf32 False \
+    --tf32 True \
     --model_max_length 32768 \
     --gradient_checkpointing True \
     --dataloader_num_workers 16 \
@@ -63,6 +71,4 @@ ACCELERATE_CPU_AFFINITY=1 torchrun \
     --attn_implementation sdpa
 
 # You can delete the sdpa attn_implementation if you want to use flash attn
-# --deepspeed /Users/Patron/Desktop/S25/M3D/petar/script/zero3.json \ Add this right after train
 # --pretrain_mm_mlp_adapter="/checkpoints/projectors/${BASE_RUN_NAME}/mm_projector.bin" \ after image folder
-# --tf32 False \ This was true
