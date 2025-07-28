@@ -30,6 +30,7 @@ gradio_client
 urllib3
 datasets
 pydantic
+pynvml
 timm
 hf_transfer
 opencv-python

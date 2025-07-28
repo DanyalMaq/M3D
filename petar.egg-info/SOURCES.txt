@@ -3,6 +3,7 @@ README.md
 pyproject.toml
 petar/__init__.py
 petar/calc_pixel.py
+petar/test.py
 petar.egg-info/PKG-INFO
 petar.egg-info/SOURCES.txt
 petar.egg-info/dependency_links.txt

@@ -1,16 +1,18 @@
 #!/bin/bash
 
-export NUM_GPUS=2
-export NNODES=1
-export RANK=0
-export ADDR=127.0.0.1
-export PORT=29500
+# export NUM_GPUS=2
+# export NNODES=1
+# export RANK=0
+# export ADDR=127.0.0.1
+# export PORT=29500
 
-export OMP_NUM_THREADS=8
-export NCCL_IB_DISABLE=0
-export NCCL_IB_GID_INDEX=3
-export NCCL_SOCKET_IFNAME=eth0
-export NCCL_DEBUG=INFO
+# export OMP_NUM_THREADS=8
+# export NCCL_IB_DISABLE=0
+# export NCCL_IB_GID_INDEX=3
+# export NCCL_SOCKET_IFNAME=eth0
+# export NCCL_DEBUG=INFO
+
+export TOKENIZERS_PARALLELISM=false # TODO: Figure out this bug later
 
 LLM_VERSION="Qwen/Qwen2-0.5B-Instruct"
 LLM_VERSION_CLEAN="${LLM_VERSION//\//_}"
@@ -25,13 +27,12 @@ PROMPT_VERSION="qwen_1_5"
 BASE_RUN_NAME="petar-${VISION_MODEL_VERSION_CLEAN}-${LLM_VERSION_CLEAN}-mlp2x_gelu-pretrain_blip558k_plain"
 echo "BASE_RUN_NAME: ${BASE_RUN_NAME}"
 
-ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NNODES}" --node_rank="${RANK}" --master_addr="${ADDR}" --master_port="${PORT}" \
-    src/train/train.py \
-    --deepspeed /mym3d/M3D/petar/script/zero3.json \
+# ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NNODES}" --node_rank="${RANK}" --master_addr="${ADDR}" --master_port="${PORT}" \
+accelerate launch src/train/train.py \
     --model_name_or_path ${LLM_VERSION} \
     --version ${PROMPT_VERSION} \
-    --data_path=/Users/Patron/Desktop/S25/M3D/Data/sample/train.json \
-    --image_folder /Users/Patron/Desktop/S25/M3D/Data/sample/images \
+    --data_path=/mym3d/Data/sample/train.json \
+    --image_folder /mym3d/Data/sample/images \
     --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
     --mm_vision_tower_lr=2e-6 \
     --vision_tower ${VISION_MODEL_VERSION} \
@@ -43,14 +44,14 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NN
     --image_aspect_ratio anyres \
     --image_grid_pinpoints "[(336, 672), (672, 336), (672, 672), (1008, 336), (336, 1008)]" \
     --mm_patch_merge_type spatial_unpad \
-    --bf16 False \
+    --bf16 True \
     --run_name $BASE_RUN_NAME \
     --output_dir "/checkpoints/${BASE_RUN_NAME}" \
-    --num_train_epochs 1 \
-    --per_device_train_batch_size 4 \
-    --per_device_eval_batch_size 4 \
+    --num_train_epochs 3 \
+    --per_device_train_batch_size 1 \
+    --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 1 \
-    --evaluation_strategy "no" \
+    --eval_strategy "no" \
     --save_strategy "steps" \
     --save_steps 3000 \
     --save_total_limit 1 \
@@ -64,7 +65,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NN
     --gradient_checkpointing True \
     --dataloader_num_workers 16 \
     --lazy_preprocess True \
-    --report_to wandb \
+    --report_to none \
     --torch_compile True \
     --torch_compile_backend "inductor" \
     --dataloader_drop_last True \
@@ -72,3 +73,5 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${NUM_GPUS}" --nnodes="${NN
 
 # You can delete the sdpa attn_implementation if you want to use flash attn
 # --pretrain_mm_mlp_adapter="/checkpoints/projectors/${BASE_RUN_NAME}/mm_projector.bin" \ after image folder
+# --deepspeed /mym3d/petar/script/zero3.json \ - removed right after train.py
+# --report_to none \ This was wandb - maybe add it later
