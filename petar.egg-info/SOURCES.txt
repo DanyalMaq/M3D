@@ -34,6 +34,11 @@ petar/src/model/multimodal_encoder/Merlin/merlin/data/__init__.py
 petar/src/model/multimodal_encoder/Merlin/merlin/data/dataloaders.py
 petar/src/model/multimodal_encoder/Merlin/merlin/data/download_data.py
 petar/src/model/multimodal_encoder/Merlin/merlin/data/monai_transforms.py
+petar/src/model/multimodal_encoder/Merlin/merlin/models/__init__.py
+petar/src/model/multimodal_encoder/Merlin/merlin/models/build.py
+petar/src/model/multimodal_encoder/Merlin/merlin/models/i3res.py
+petar/src/model/multimodal_encoder/Merlin/merlin/models/inflate.py
+petar/src/model/multimodal_encoder/Merlin/merlin/models/load.py
 petar/src/model/multimodal_encoder/Merlin/merlin/utils/__init__.py
 petar/src/model/multimodal_encoder/Merlin/merlin/utils/huggingface_download.py
 petar/src/model/multimodal_encoder/fvlm/extract.py

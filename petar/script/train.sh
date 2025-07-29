@@ -33,6 +33,8 @@ accelerate launch src/train/train.py \
     --version ${PROMPT_VERSION} \
     --data_path=../Data/sample/train.json \
     --image_folder ../Data/sample/images \
+    --data_path=../Data/sample/train.json \
+    --image_folder ../Data/sample/images \
     --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
     --mm_vision_tower_lr=2e-6 \
     --vision_tower ${VISION_MODEL_VERSION} \
