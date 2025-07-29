@@ -57,7 +57,6 @@ torch.multiprocessing.set_sharing_strategy("file_system")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 local_rank = None
 
-
 def maybe_zero_3(param, ignore_status=False, name=None):
     from deepspeed import zero
     from deepspeed.runtime.zero.partition_parameters import ZeroParamStatus
@@ -284,8 +283,7 @@ def get_model(model_args, training_args, bnb_model_from_pretrained_args):
                 **customized_kwargs,
             )
         elif "qwen" in model_args.model_name_or_path.lower():
-            # rank0_print(customized_kwargs)
-            # exit()
+            rank0_print("Starting to create model with args")
             model = PetarQwenForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
                 cache_dir=training_args.cache_dir,
@@ -428,6 +426,7 @@ def train(attn_implementation=None):
             conversation_lib.default_conversation = conversation_lib.conv_templates["vicuna_v1"]
 
     if model_args.vision_tower is not None:
+        rank0_print("Starting to initialize vision tower")
         model.get_model().initialize_vision_modules(model_args=model_args, fsdp=training_args.fsdp)
 
         vision_tower = model.get_vision_tower()
@@ -469,58 +468,29 @@ def train(attn_implementation=None):
         model.config.mm_spatial_pool_stride = model_args.mm_spatial_pool_stride 
 
         ### Deciding train which part of the model
-        if model_args.mm_tunable_parts is None:  # traditional way of deciding which part to train
-            model.config.tune_mm_mlp_adapter = training_args.tune_mm_mlp_adapter = model_args.tune_mm_mlp_adapter
-            model.config.tune_mm_vision_resampler = training_args.tune_mm_vision_resampler = model_args.tune_mm_vision_resampler
-            if model_args.tune_mm_mlp_adapter or model_args.tune_mm_vision_resampler:
-                model.requires_grad_(False)
-            if model_args.tune_mm_mlp_adapter:
-                for p in model.get_model().mm_projector.parameters():
-                    p.requires_grad = True
-            if model_args.tune_mm_vision_resampler:
-                for p in model.get_model().vision_resampler.parameters():
-                    p.requires_grad = True
-
-            model.config.freeze_mm_mlp_adapter = training_args.freeze_mm_mlp_adapter
-            if training_args.freeze_mm_mlp_adapter:
-                for p in model.get_model().mm_projector.parameters():
-                    p.requires_grad = False
-
-            model.config.freeze_mm_vision_resampler = training_args.freeze_mm_vision_resampler
-            if training_args.freeze_mm_vision_resampler:
-                for p in model.get_model().vision_resampler.parameters():
-                    p.requires_grad = False
-
-            model.config.unfreeze_mm_vision_tower = model_args.unfreeze_mm_vision_tower
-            if model_args.unfreeze_mm_vision_tower:
-                vision_tower.requires_grad_(True)
-            else:
-                vision_tower.requires_grad_(False)
-
-        else:
-            rank0_print(f"Using mm_tunable_parts: {model_args.mm_tunable_parts}")
-            model.config.mm_tunable_parts = training_args.mm_tunable_parts = model_args.mm_tunable_parts
-            # Set the entire model to not require gradients by default
-            model.requires_grad_(False)
-            vision_tower.requires_grad_(False)
-            model.get_model().mm_projector.requires_grad_(False)
-            model.get_model().vision_resampler.requires_grad_(False)
-            # Parse the mm_tunable_parts to decide which parts to unfreeze
-            tunable_parts = model_args.mm_tunable_parts.split(",")
-            if "mm_mlp_adapter" in tunable_parts:
-                for p in model.get_model().mm_projector.parameters():
-                    p.requires_grad = True
-            if "mm_vision_resampler" in tunable_parts:
-                for p in model.get_model().vision_resampler.parameters():
-                    p.requires_grad = True
-            if "mm_vision_tower" in tunable_parts:
-                for name, param in model.named_parameters():
-                    if "vision_tower" in name:
-                        param.requires_grad_(True)
-            if "mm_language_model" in tunable_parts:
-                for name, param in model.named_parameters():
-                    if "vision_tower" not in name and "mm_projector" not in name and "vision_resampler" not in name:
-                        param.requires_grad_(True)
+        rank0_print(f"Using mm_tunable_parts: {model_args.mm_tunable_parts}")
+        model.config.mm_tunable_parts = training_args.mm_tunable_parts = model_args.mm_tunable_parts
+        # Set the entire model to not require gradients by default
+        model.requires_grad_(False)
+        vision_tower.requires_grad_(False)
+        model.get_model().mm_projector.requires_grad_(False)
+        model.get_model().vision_resampler.requires_grad_(False)
+        # Parse the mm_tunable_parts to decide which parts to unfreeze
+        tunable_parts = model_args.mm_tunable_parts.split(",")
+        if "mm_mlp_adapter" in tunable_parts:
+            for p in model.get_model().mm_projector.parameters():
+                p.requires_grad = True
+        if "mm_vision_resampler" in tunable_parts:
+            for p in model.get_model().vision_resampler.parameters():
+                p.requires_grad = True
+        if "mm_vision_tower" in tunable_parts:
+            for name, param in model.named_parameters():
+                if "vision_tower" in name:
+                    param.requires_grad_(True)
+        if "mm_language_model" in tunable_parts:
+            for name, param in model.named_parameters():
+                if "vision_tower" not in name and "mm_projector" not in name and "vision_resampler" not in name:
+                    param.requires_grad_(True)
 
         total_params = sum(p.ds_numel if hasattr(p, "ds_numel") else p.numel() for p in model.parameters())
         trainable_params = sum(p.ds_numel if hasattr(p, "ds_numel") else p.numel() for p in model.parameters() if p.requires_grad)
@@ -534,6 +504,7 @@ def train(attn_implementation=None):
         model.config.mm_vision_tower_lr = training_args.mm_vision_tower_lr
         training_args.use_im_start_end = model_args.mm_use_im_start_end
         model.config.mm_use_im_patch_token = model_args.mm_use_im_patch_token
+        rank0_print("Initing vision tokenizer")
         model.initialize_vision_tokenizer(model_args, tokenizer=tokenizer)
 
     if training_args.bits in [4, 8]:

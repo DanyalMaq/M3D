@@ -61,6 +61,7 @@ import sys
 import numpy as np
 
 import requests
+import torch._dynamo
 
 from petar.src.utils.constants import LOGDIR
 
@@ -124,7 +125,7 @@ def process_video_with_pyav(video_file, data_args):
     frames = [video_frames[i] for i in frame_idx]
     return np.stack([x.to_ndarray(format="rgb24") for x in frames])
 
-
+@torch._dynamo.disable
 def rank0_print(*args):
     if dist.is_initialized():
         if dist.get_rank() == 0:

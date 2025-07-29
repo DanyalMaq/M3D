@@ -37,6 +37,7 @@ class PetarMetaModel:
 
         if hasattr(config, "mm_vision_tower"):
             delay_load = getattr(config, "delay_load", False)
+            rank0_print("Starting to build in init")
             self.vision_tower = build_vision_tower(config, delay_load=delay_load)
             self.vision_resampler = build_vision_resampler(config, vision_tower=self.vision_tower)
             self.mm_projector = build_vision_projector(config, vision_cfg=self.vision_tower.config)
@@ -51,6 +52,7 @@ class PetarMetaModel:
         return vision_tower
 
     def initialize_vision_modules(self, model_args, fsdp=None):
+        rank0_print("Starting to build in initialize_vision_modules")
         vision_tower = model_args.vision_tower
         mm_vision_select_layer = model_args.mm_vision_select_layer
         mm_vision_select_feature = model_args.mm_vision_select_feature
@@ -92,14 +94,6 @@ class PetarMetaModel:
         self.config.mm_vision_select_feature = mm_vision_select_feature
         self.config.mm_patch_merge_type = mm_patch_merge_type
 
-        
-        if not hasattr(self.config, 'add_faster_video'):
-            if model_args.add_faster_video:
-                embed_std = 1 / torch.sqrt(torch.tensor(self.config.hidden_size, dtype=self.dtype))
-                self.faster_token = nn.Parameter(
-                    torch.randn(self.config.hidden_size, dtype=self.dtype) * embed_std
-                )
-
         if getattr(self, "mm_projector", None) is None:
             self.mm_projector = build_vision_projector(self.config, vision_cfg=vision_tower.config)
 
@@ -136,6 +130,9 @@ def unpad_image(tensor, original_size):
     """
     original_width, original_height = original_size
     current_height, current_width = tensor.shape[1:]
+    rank0_print("Heights in unpad_images")
+    rank0_print(f"{original_size}")
+    rank0_print(f"{current_width}, {current_height}")
 
     # Compute aspect ratios
     original_aspect_ratio = original_width / original_height
@@ -170,6 +167,7 @@ class PetarMetaForCausalLM(ABC):
     def get_2dPool(self, image_feature, stride=2):
         height = width = self.get_vision_tower().num_patches_per_side
         num_frames, num_tokens, num_dim = image_feature.shape
+        rank0_print("Image features shape initially", image_features.shape)
         image_feature = image_feature.view(num_frames, height, width, -1)
         image_feature = image_feature.permute(0, 3, 1, 2).contiguous()
         # image_feature = nn.functional.max_pool2d(image_feature, self.config.mm_spatial_pool_stride)
@@ -184,8 +182,10 @@ class PetarMetaForCausalLM(ABC):
 
         else:
             raise ValueError(f"Unexpected mm_spatial_pool_mode: {self.config.mm_spatial_pool_mode}")
+        rank0_print("Image features shape after pooling", image_features.shape)
         image_feature = image_feature.permute(0, 2, 3, 1)
         image_feature = image_feature.view(num_frames, -1, num_dim)
+        rank0_print("Image features shape before return pooling", image_features.shape)
         return image_feature
 
     def encode_images(self, images):
@@ -193,30 +193,6 @@ class PetarMetaForCausalLM(ABC):
         # image_features = self.get_model().vision_resampler(image_features, images=images)
         image_features = self.get_model().mm_projector(image_features)
         return image_features
-    
-    def encode_multimodals(self, videos_or_images, video_idx_in_batch, split_sizes=None):
-        videos_or_images_features = self.get_model().get_vision_tower()(videos_or_images)
-        per_videos_or_images_features = torch.split(videos_or_images_features, split_sizes, dim=0)  # tuple, (dim_1, 576, 4096)
-        all_videos_or_images_features = []
-        all_faster_video_features = []
-        cur_mm_spatial_pool_stride = self.config.mm_spatial_pool_stride
-
-        for idx, feat in enumerate(per_videos_or_images_features):
-            
-            feat = self.get_model().mm_projector(feat)
-            faster_video_feature = 0
-            slower_img_feat = 0
-            if idx in video_idx_in_batch and cur_mm_spatial_pool_stride > 1:
-                slower_img_feat = self.get_2dPool(feat,cur_mm_spatial_pool_stride)
-                if self.config.add_faster_video:
-                    cur_mm_spatial_pool_stride = cur_mm_spatial_pool_stride * 2
-                    faster_video_feature = self.get_2dPool(feat,cur_mm_spatial_pool_stride)
-            if slower_img_feat is not 0:
-                all_videos_or_images_features.append(slower_img_feat)
-            else:
-                all_videos_or_images_features.append(feat)
-            all_faster_video_features.append(faster_video_feature)
-        return all_videos_or_images_features,all_faster_video_features
 
     def add_token_per_grid(self, image_feature):
         resize_h = int(math.sqrt(image_feature.shape[1]))
@@ -250,6 +226,9 @@ class PetarMetaForCausalLM(ABC):
     def prepare_inputs_labels_for_multimodal(self, input_ids, position_ids, attention_mask, past_key_values, labels, images, modalities=["image"], image_sizes=None):
         vision_tower = self.get_vision_tower()
         # rank_print(modalities)
+        rank0_print("All features")
+        rank0_print(f"input_ids: {input_ids.shape}")
+        rank0_print(f"attention_mask: {attention_mask.shape}")
         if vision_tower is None or images is None or input_ids.shape[1] == 1:
             return input_ids, position_ids, attention_mask, past_key_values, None, labels
 
@@ -261,11 +240,6 @@ class PetarMetaForCausalLM(ABC):
             if type(images) is list:
                 images = [x.unsqueeze(0) if x.ndim == 3 else x for x in images]
 
-            video_idx_in_batch = []
-            for _ in range(len(modalities)):
-                if modalities[_] == "video":
-                    video_idx_in_batch.append(_)
-
             images_list = []
             for image in images:
                 if image.ndim == 4:
@@ -273,20 +247,18 @@ class PetarMetaForCausalLM(ABC):
                 else:
                     images_list.append(image.unsqueeze(0))
 
-            concat_images = torch.cat([image for image in images_list], dim=0)
+            concat_images = torch.cat([image for image in images_list], dim=0) # TODO: This part could go in the collator?
             split_sizes = [image.shape[0] for image in images_list]
+            rank0_print("Concatanated images in arch", concat_images.shape)
             encoded_image_features = self.encode_images(concat_images)
-            # image_features,all_faster_video_features = self.encode_multimodals(concat_images, video_idx_in_batch, split_sizes)
+            rank0_print("encoded images and shape in arch", len(encoded_image_features), encoded_image_features[0].shape)
 
             # This is a list, each element is [num_images, patch * patch, dim]
             # rank_print(f"Concat images : {concat_images.shape}")
             encoded_image_features = torch.split(encoded_image_features, split_sizes)
             image_features = []
             for idx, image_feat in enumerate(encoded_image_features):
-                if idx in video_idx_in_batch:
-                    image_features.append(self.get_2dPool(image_feat))
-                else:
-                    image_features.append(image_feat)
+                image_features.append(image_feat)
             # image_features = self.encode_multimodals(concat_images, video_idx_in_batch, split_sizes)
             # rank_print(f"Encoded image feats : {[x.shape for x in image_features]}")
             # image_features = torch.split(image_features, split_sizes, dim=0)
@@ -374,6 +346,7 @@ class PetarMetaForCausalLM(ABC):
                 raise ValueError(f"Unexpected mm_patch_merge_type: {self.config.mm_patch_merge_type}")
         else:
             image_features = self.encode_images(images)
+        rank0_print("encoded images in arch after merge", len(image_features), image_features[0].shape)
 
         # TODO: image start / end is not implemented here to support pretraining.
         if getattr(self.config, "tune_mm_mlp_adapter", False) and getattr(self.config, "mm_use_im_start_end", False):
@@ -488,7 +461,7 @@ class PetarMetaForCausalLM(ABC):
                     position_ids[i, :cur_len] = torch.arange(0, cur_len, dtype=position_ids.dtype, device=position_ids.device)
 
         new_input_embeds = torch.stack(new_input_embeds_padded, dim=0)
-        # rank0_print("tokenizer padding")
+        rank0_print("New input embeds", new_input_embeds.shape)
 
         if _labels is None:
             new_labels = None
